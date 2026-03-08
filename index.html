@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NSE Volume Spike Screener</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:monospace;background:#070a0f;color:#e2e8f0;min-height:100vh}
+:root{--bg:#070a0f;--sur:#0d1117;--sur2:#131920;--brd:#1e2d3d;--grn:#00ff88;--blu:#0099ff;--red:#ff3b5c;--ylw:#ffaa00;--txt:#e2e8f0;--mut:#4a6080}
+
+/* header */
+.hdr{position:sticky;top:0;z-index:50;background:#070a0f;border-bottom:1px solid var(--brd);padding:12px 16px;display:flex;align-items:center;justify-content:space-between}
+.logo{font-size:14px;font-weight:900;display:flex;align-items:center;gap:8px;letter-spacing:-.3px}
+.ldot{width:8px;height:8px;border-radius:50%;background:var(--grn);box-shadow:0 0 8px var(--grn);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.live-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--grn)}
+.live-badge.off{color:var(--mut)}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--grn);animation:blink 1s infinite}
+.live-badge.off .live-dot{background:var(--mut);animation:none}
+
+/* buttons */
+button{cursor:pointer;font-family:monospace;font-weight:700;border:none;border-radius:8px;-webkit-tap-highlight-color:rgba(0,255,136,.3);touch-action:manipulation;-webkit-appearance:none;transition:opacity .15s}
+button:active{opacity:.65}
+.btn-primary{background:var(--grn);color:#000;padding:14px 20px;width:100%;font-size:13px;margin-top:8px}
+.btn-outline{background:transparent;color:var(--blu);border:1px solid var(--blu);padding:13px 20px;width:100%;font-size:13px;margin-top:10px}
+.btn-danger{background:transparent;color:var(--red);border:1px solid rgba(255,59,92,.5);padding:7px 14px;font-size:11px}
+.btn-sm{background:var(--sur2);color:var(--txt);border:1px solid var(--brd);padding:7px 14px;font-size:11px}
+.seg{padding:7px 14px;border-radius:7px;border:1px solid var(--brd);background:transparent;color:var(--mut);font-size:11px;font-weight:700;touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,255,136,.3)}
+.seg.on{background:rgba(0,255,136,.12);border-color:var(--grn);color:var(--grn)}
+.seg.on-red{background:rgba(255,59,92,.12);border-color:var(--red);color:var(--red)}
+.seg.on-blu{background:rgba(0,153,255,.12);border-color:var(--blu);color:var(--blu)}
+.seg.on-ylw{background:rgba(255,170,0,.12);border-color:var(--ylw);color:var(--ylw)}
+
+/* inputs */
+input,select{background:#000;border:1px solid var(--brd);border-radius:8px;padding:11px 14px;color:var(--txt);font-family:monospace;font-size:12px;width:100%;outline:none;-webkit-appearance:none;touch-action:manipulation}
+input:focus,select:focus{border-color:var(--grn)}
+input::placeholder{color:var(--mut)}
+
+/* setup */
+#setup-panel{max-width:580px;margin:36px auto;padding:0 16px 50px}
+.card{background:var(--sur);border:1px solid var(--brd);border-radius:14px;padding:26px 22px;margin-bottom:14px;position:relative;overflow:hidden}
+.card-top{position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--grn),var(--blu))}
+.card-title{font-size:21px;font-weight:900;margin-bottom:5px}
+.card-sub{color:var(--mut);font-size:11px;margin-bottom:22px;line-height:1.8}
+.fgrp{margin-bottom:14px}
+.flbl{display:block;font-size:10px;font-weight:700;letter-spacing:1px;color:var(--mut);margin-bottom:6px;text-transform:uppercase}
+.frow2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.seg-row{display:flex;gap:6px;flex-wrap:wrap}
+.info-box{background:rgba(0,255,136,.05);border:1px solid rgba(0,255,136,.2);border-radius:8px;padding:12px 14px;font-size:11px;color:#7fffc4;margin-bottom:18px;line-height:1.9}
+.info-box strong{color:#fff}
+.code{background:rgba(0,0,0,.6);padding:1px 6px;border-radius:4px;font-size:10px;color:var(--grn)}
+.msg{margin-top:12px;padding:12px 14px;border-radius:8px;font-size:11px;line-height:1.8;white-space:pre-line;display:none}
+.msg.err{background:rgba(255,59,92,.1);border:1px solid rgba(255,59,92,.3);color:#ff8fa3}
+.msg.info{background:rgba(0,255,136,.07);border:1px solid rgba(0,255,136,.25);color:var(--grn)}
+.howto{background:var(--sur2);border-radius:10px;padding:16px 18px;margin-top:8px}
+.howto-title{font-weight:700;font-size:12px;color:var(--txt);margin-bottom:10px}
+.howto-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:7px;font-size:11px;color:var(--mut);line-height:1.6}
+.snum{min-width:20px;height:20px;border-radius:50%;background:var(--sur);border:1px solid var(--brd);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--grn);flex-shrink:0;margin-top:1px}
+
+/* screener */
+#screener-panel{display:none}
+.ticker-wrap{overflow:hidden;border-bottom:1px solid var(--brd);background:var(--sur);padding:8px 0}
+.ticker-inner{display:flex;gap:0;animation:scroll 60s linear infinite;white-space:nowrap}
+@keyframes scroll{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+.ticker-item{display:inline-flex;align-items:center;gap:6px;padding:0 20px;font-size:11px;border-right:1px solid var(--brd)}
+.ticker-sym{font-weight:800;color:var(--txt)}
+
+/* tabs */
+.tabs{display:flex;background:var(--sur);border-bottom:1px solid var(--brd)}
+.tab{flex:1;padding:12px 8px;font-family:monospace;font-size:11px;font-weight:700;color:var(--mut);background:transparent;border:none;border-bottom:2px solid transparent;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:rgba(0,255,136,.3);-webkit-appearance:none}
+.tab:active{opacity:.7}
+.tab.on{color:var(--grn);border-bottom-color:var(--grn)}
+.tab.on-fno{color:var(--red);border-bottom-color:var(--red)}
+.tab-panel{display:none}
+.tab-panel.on{display:block}
+
+/* stats bar */
+.stats-bar{padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--brd);background:var(--sur);overflow-x:auto;-webkit-overflow-scrolling:touch}
+.stat{background:var(--sur2);border:1px solid var(--brd);border-radius:8px;padding:6px 14px;flex-shrink:0;text-align:center}
+.stat-val{font-weight:800;font-size:16px;color:var(--grn);font-family:monospace}
+.stat-lbl{font-size:9px;color:var(--mut);letter-spacing:.8px;margin-top:1px}
+.controls{margin-left:auto;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.clbl{font-size:9px;font-weight:700;letter-spacing:1px;color:var(--mut)}
+
+/* filter bar */
+.filter-bar{padding:8px 14px;display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--brd);overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--sur)}
+.divider{width:1px;height:18px;background:var(--brd);flex-shrink:0;margin:0 2px}
+
+/* table */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:11px}
+thead tr{background:var(--sur2);border-bottom:1px solid var(--brd)}
+th{padding:9px 12px;text-align:left;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--mut);white-space:nowrap}
+tbody tr{border-bottom:1px solid rgba(30,45,61,.5)}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody tr.new-row{animation:flash 1.5s ease-out}
+@keyframes flash{0%{background:rgba(0,255,136,.08)}100%{background:transparent}}
+td{padding:9px 12px;white-space:nowrap}
+.empty{padding:50px 20px;text-align:center}
+.empty-icon{font-size:40px;margin-bottom:14px;opacity:.4}
+.empty-title{font-size:16px;font-weight:700;margin-bottom:8px}
+.empty-sub{color:var(--mut);font-size:11px;line-height:1.8}
+
+/* ratio pill */
+.rpill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;font-weight:800;font-family:monospace}
+.r-mod{background:rgba(0,255,136,.1);color:var(--grn);border:1px solid rgba(0,255,136,.3)}
+.r-high{background:rgba(255,170,0,.1);color:var(--ylw);border:1px solid rgba(255,170,0,.3)}
+.r-mega{background:rgba(255,59,92,.1);color:var(--red);border:1px solid rgba(255,59,92,.3)}
+
+/* type tags */
+.tag{display:inline-block;padding:1px 7px;border-radius:3px;font-size:9px;font-weight:800}
+.tag-ce{background:rgba(0,153,255,.15);color:var(--blu);border:1px solid rgba(0,153,255,.3)}
+.tag-pe{background:rgba(255,59,92,.15);color:var(--red);border:1px solid rgba(255,59,92,.3)}
+.tag-fut{background:rgba(255,170,0,.15);color:var(--ylw);border:1px solid rgba(255,170,0,.3)}
+.tag-fno{background:rgba(255,59,92,.1);color:var(--red);border:1px solid rgba(255,59,92,.25);font-size:8px}
+
+/* spike duo cell */
+.duo{display:inline-flex;flex-direction:column;align-items:center;padding:3px 8px;border-radius:6px}
+.duo .big{font-weight:900;font-size:13px}
+.duo .sml{font-size:9px;color:var(--mut);margin-top:1px}
+
+/* alerts */
+.alerts{position:fixed;bottom:20px;right:16px;z-index:999;display:flex;flex-direction:column;gap:8px;max-width:320px}
+.alert{background:var(--sur);border:1px solid var(--brd);border-radius:10px;padding:12px 16px;font-size:11px;border-left:3px solid var(--grn);animation:slideIn .3s ease;box-shadow:0 4px 20px rgba(0,0,0,.5)}
+@keyframes slideIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+.alert-sym{font-weight:800;font-size:13px;margin-bottom:3px}
+
+/* progress */
+.prog-wrap{padding:14px 16px;background:var(--sur);border-bottom:1px solid var(--brd);display:none}
+.prog-bar{height:3px;background:var(--brd);border-radius:3px;overflow:hidden;margin-top:8px}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--grn),var(--blu));border-radius:3px;transition:width .3s}
+.prog-label{display:flex;justify-content:space-between;font-size:10px;color:var(--mut)}
+
+@media(max-width:600px){.frow2{grid-template-columns:1fr}.stats-bar{gap:6px}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="hdr">
+  <div class="logo">
+    <div class="ldot"></div>
+    NSE SCREENER
+  </div>
+  <div id="live-badge" class="live-badge off">
+    <div class="live-dot"></div>
+    <span id="live-txt">OFFLINE</span>
+  </div>
+</div>
+
+<!-- SETUP PANEL -->
+<div id="setup-panel">
+  <div style="max-width:580px;margin:36px auto;padding:0 16px 50px">
+
+    <div class="card">
+      <div class="card-top"></div>
+      <div class="card-title">NSE Volume Spike Screener</div>
+      <div class="card-sub">Real-time Zerodha Kite Connect WebSocket screener for NSE stocks and F&amp;O contracts. Detects volume + price spikes as they happen.</div>
+
+      <div class="info-box">
+        <strong>Kite Developer App URLs</strong><br>
+        Redirect URL &rarr; <span class="code">https://tapankapadia007-design.github.io/Kapadia_Wealth/</span><br>
+        Postback URL &rarr; <span class="code">https://tapankapadia007-design.github.io/Kapadia_Wealth/postback</span>
+      </div>
+
+      <div class="fgrp">
+        <label class="flbl">API Key</label>
+        <input type="text" id="api-key" placeholder="e.g. plxxli4ca3wmhteb" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+      </div>
+
+      <div class="fgrp">
+        <label class="flbl">Access Token (paste daily)</label>
+        <input type="text" id="access-token" placeholder="Paste access_token here" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false">
+      </div>
+
+      <div class="frow2" style="margin-bottom:14px">
+        <div class="fgrp" style="margin-bottom:0">
+          <label class="flbl">Default Timeframe</label>
+          <select id="tf-select">
+            <option value="10">10 seconds</option>
+            <option value="20">20 seconds</option>
+            <option value="30" selected>30 seconds</option>
+          </select>
+        </div>
+        <div class="fgrp" style="margin-bottom:0">
+          <label class="flbl">Spike Threshold</label>
+          <select id="threshold-select">
+            <option value="2">2x average</option>
+            <option value="3" selected>3x average</option>
+            <option value="5">5x average</option>
+            <option value="10">10x average</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="fgrp">
+        <label class="flbl">Stock Universe</label>
+        <div class="seg-row">
+          <button class="seg on" id="uni-all" onclick="setUniSetup('all')">All NSE (~2000)</button>
+          <button class="seg" id="uni-fno" onclick="setUniSetup('fno')">F&amp;O Only (~200)</button>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="doConnect()">CONNECT &amp; START SCREENING</button>
+      <button class="btn-outline" onclick="doLogin()">OPEN ZERODHA LOGIN FIRST</button>
+
+      <div id="setup-msg" class="msg"></div>
+
+      <div class="howto" style="margin-top:20px">
+        <div class="howto-title">How to get Access Token daily</div>
+        <div class="howto-step"><div class="snum">1</div><div>Click "Open Zerodha Login" &rarr; login with your credentials</div></div>
+        <div class="howto-step"><div class="snum">2</div><div>After login you'll be redirected. Copy the <span class="code">request_token</span> from the URL</div></div>
+        <div class="howto-step"><div class="snum">3</div><div>On your PC run this Python command:<br><br>
+          <span class="code">python -c "from kiteconnect import KiteConnect; k=KiteConnect(api_key='YOUR_KEY'); s=k.generate_session('REQUEST_TOKEN','YOUR_SECRET'); print(s['access_token'])"</span>
+        </div></div>
+        <div class="howto-step"><div class="snum">4</div><div>Paste the printed token above and click Connect</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SCREENER PANEL -->
+<div id="screener-panel">
+
+  <!-- TICKER -->
+  <div class="ticker-wrap">
+    <div class="ticker-inner" id="ticker-inner">
+      <span class="ticker-item"><span class="ticker-sym">RELIANCE</span> <span>waiting...</span></span>
+      <span class="ticker-item"><span class="ticker-sym">TCS</span> <span>waiting...</span></span>
+      <span class="ticker-item"><span class="ticker-sym">INFY</span> <span>waiting...</span></span>
+      <span class="ticker-item"><span class="ticker-sym">HDFCBANK</span> <span>waiting...</span></span>
+      <span class="ticker-item"><span class="ticker-sym">SBIN</span> <span>waiting...</span></span>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="tabs">
+    <button class="tab on" id="tab-eq-btn" onclick="switchTab('eq')">EQ SCREENER</button>
+    <button class="tab" id="tab-fno-btn" onclick="switchTab('fno')">F&amp;O OPTIONS SCREENER</button>
+    <button class="btn-danger" style="margin:6px 10px 6px auto;padding:6px 12px;font-size:10px" onclick="doDisconnect()">DISCONNECT</button>
+  </div>
+
+  <!-- ── EQ TAB ── -->
+  <div class="tab-panel on" id="tab-eq">
+
+    <!-- STATS -->
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-val" id="stat-subscribed">0</div>
+        <div class="stat-lbl" id="stat-uni-lbl">NSE Stocks</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" id="stat-active">0</div>
+        <div class="stat-lbl">Active</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--red)" id="stat-spikes">0</div>
+        <div class="stat-lbl">Spikes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--ylw)" id="stat-total">0</div>
+        <div class="stat-lbl">Today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="font-size:12px;color:var(--mut)" id="stat-countdown">--</div>
+        <div class="stat-lbl">Next Candle</div>
+      </div>
+      <div class="controls">
+        <span class="clbl">TF</span>
+        <button class="seg" id="tf10" onclick="setTF(10)">10s</button>
+        <button class="seg" id="tf20" onclick="setTF(20)">20s</button>
+        <button class="seg on" id="tf30" onclick="setTF(30)">30s</button>
+        <span class="clbl" style="margin-left:6px">MIN</span>
+        <select style="width:auto;padding:5px 10px;font-size:10px" id="min-ratio" onchange="renderEqTable()">
+          <option value="2">2x+</option>
+          <option value="3" selected>3x+</option>
+          <option value="5">5x+</option>
+          <option value="10">10x+</option>
+        </select>
+        <select style="width:auto;padding:5px 10px;font-size:10px" id="sort-eq" onchange="renderEqTable()">
+          <option value="ratio">Ratio</option>
+          <option value="volume">Volume</option>
+          <option value="time">Time</option>
+        </select>
+        <button class="btn-sm" onclick="clearEq()">Clear</button>
+      </div>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="prog-wrap" id="prog-wrap">
+      <div class="prog-label">
+        <span id="prog-text">Loading instruments...</span>
+        <span id="prog-pct">0%</span>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar">
+      <span class="clbl">UNIVERSE</span>
+      <button class="seg on" id="uni-all-btn" onclick="setUniverse('all')">All NSE</button>
+      <button class="seg" id="uni-fno-btn" onclick="setUniverse('fno')">F&amp;O Only</button>
+      <div class="divider"></div>
+      <span class="clbl">SPIKE</span>
+      <button class="seg on" id="f-all" onclick="setFilter('all')">ALL</button>
+      <button class="seg" id="f-mega" onclick="setFilter('mega')">MEGA 10x+</button>
+      <button class="seg" id="f-high" onclick="setFilter('high')">HIGH 5x+</button>
+      <button class="seg" id="f-mod"  onclick="setFilter('mod')">MOD 3x+</button>
+    </div>
+
+    <!-- EQ TABLE -->
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Symbol</th>
+            <th>LTP</th>
+            <th>Chg%</th>
+            <th>Candle Vol</th>
+            <th>vs Avg</th>
+            <th>Ratio</th>
+            <th>Vol Spike%</th>
+            <th>Type</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="eq-tbody">
+          <tr><td colspan="9">
+            <div class="empty">
+              <div class="empty-icon">📡</div>
+              <div class="empty-title">Waiting for WebSocket...</div>
+              <div class="empty-sub">First spikes appear after the candle closes.</div>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /tab-eq -->
+
+  <!-- ── F&O TAB ── -->
+  <div class="tab-panel" id="tab-fno">
+
+    <!-- F&O STATS -->
+    <div class="stats-bar">
+      <div class="stat">
+        <div class="stat-val" id="fno-stat-contracts">0</div>
+        <div class="stat-lbl">Contracts</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--red)" id="fno-stat-spikes">0</div>
+        <div class="stat-lbl">Spikes</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="color:var(--ylw)" id="fno-stat-total">0</div>
+        <div class="stat-lbl">Today</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val" style="font-size:12px;color:var(--mut)" id="fno-stat-countdown">--</div>
+        <div class="stat-lbl">Next Candle</div>
+      </div>
+      <div class="controls">
+        <span class="clbl">TF</span>
+        <button class="seg" id="ftf10" onclick="setFnoTF(10)">10s</button>
+        <button class="seg" id="ftf20" onclick="setFnoTF(20)">20s</button>
+        <button class="seg on" id="ftf30" onclick="setFnoTF(30)">30s</button>
+        <button class="btn-sm" style="margin-left:6px" onclick="clearFno()">Clear</button>
+      </div>
+    </div>
+
+    <!-- F&O FILTERS -->
+    <div class="filter-bar">
+      <span class="clbl">TYPE</span>
+      <button class="seg on" id="ft-all" onclick="setFnoType('ALL')">ALL</button>
+      <button class="seg" id="ft-ce"  onclick="setFnoType('CE')">CALL CE</button>
+      <button class="seg" id="ft-pe"  onclick="setFnoType('PE')">PUT PE</button>
+      <button class="seg" id="ft-fut" onclick="setFnoType('FUT')">FUTURES</button>
+      <div class="divider"></div>
+      <span class="clbl">MIN PRICE SPIKE</span>
+      <button class="seg" id="fp20"  onclick="setMinPrice(20)">20%+</button>
+      <button class="seg on" id="fp50"  onclick="setMinPrice(50)">50%+</button>
+      <button class="seg" id="fp100" onclick="setMinPrice(100)">100%+</button>
+      <button class="seg" id="fp200" onclick="setMinPrice(200)">200%+</button>
+      <div class="divider"></div>
+      <span class="clbl">MIN VOL</span>
+      <select style="width:auto;padding:5px 10px;font-size:10px" id="fno-min-vol" onchange="renderFnoTable()">
+        <option value="2">2x+</option>
+        <option value="3" selected>3x+</option>
+        <option value="5">5x+</option>
+      </select>
+      <select style="width:auto;padding:5px 10px;font-size:10px" id="fno-sort" onchange="renderFnoTable()">
+        <option value="pricePct">Price%</option>
+        <option value="volRatio">Vol Ratio</option>
+        <option value="time">Time</option>
+      </select>
+    </div>
+
+    <!-- F&O TABLE -->
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Contract</th>
+            <th>Type</th>
+            <th>Strike</th>
+            <th>Expiry</th>
+            <th>LTP</th>
+            <th>Price Spike %</th>
+            <th>Open → Close</th>
+            <th>Vol Spike %</th>
+            <th>Vol Ratio</th>
+            <th>Volume</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="fno-tbody">
+          <tr><td colspan="11">
+            <div class="empty">
+              <div class="empty-icon">🔥</div>
+              <div class="empty-title">Click the F&amp;O tab to load contracts</div>
+              <div class="empty-sub">Will fetch all CE, PE and FUT contracts from NSE F&amp;O segment.</div>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div><!-- /tab-fno -->
+
+</div><!-- /screener-panel -->
+
+<!-- ALERTS -->
+<div class="alerts" id="alerts"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────
+var ws             = null;
+var fnoWs          = null;
+var instruments    = [];
+var tokenMap       = {};
+var prevDayVol     = {};
+var candles        = {};
+var spikes         = [];
+var paused         = false;
+var eqFilter       = 'all';
+var eqTotalToday   = 0;
+var threshold      = 3;
+var lookback       = 20;
+var apiKey         = '';
+var accessToken    = '';
+var candleTimer    = null;
+var cdTimer        = null;
+var candleSec      = 30;
+var universe       = 'all';
+var allInstr       = [];
+var fnoInstr       = [];
+var setupUniverse  = 'all';
+
+var fnoStarted     = false;
+var fnoInstruments = [];
+var fnoTokenMap    = {};
+var fnoPrevVol     = {};
+var fnoCandles     = {};
+var fnoSpikes      = [];
+var fnoTotalToday  = 0;
+var fnoCandleSec   = 30;
+var fnoCandleTimer = null;
+var fnoCdTimer     = null;
+var fnoTypeFilter  = 'ALL';
+var fnoMinPrice    = 50;
+var fnoLookback    = 20;
+
+// ── SETUP ──────────────────────────────────────────
+function setUniSetup(u) {
+  setupUniverse = u;
+  document.getElementById('uni-all').className = 'seg' + (u === 'all' ? ' on' : '');
+  document.getElementById('uni-fno').className = 'seg' + (u === 'fno' ? ' on' : '');
+}
+
+function doLogin() {
+  apiKey = document.getElementById('api-key').value.trim();
+  if (!apiKey) { showMsg('Please enter your API Key first.', 'err'); return; }
+  window.open('https://kite.zerodha.com/connect/login?api_key=' + encodeURIComponent(apiKey) + '&v=3', '_blank');
+  showMsg('Zerodha login opened. After authorising, copy the request_token from the redirect URL, generate your access_token with Python, then paste it above and click Connect.', 'info');
+}
+
+function doConnect() {
+  apiKey        = document.getElementById('api-key').value.trim();
+  accessToken   = document.getElementById('access-token').value.trim();
+  threshold     = parseInt(document.getElementById('threshold-select').value, 10);
+  candleSec     = parseInt(document.getElementById('tf-select').value, 10);
+  universe      = setupUniverse;
+  lookback      = 20;
+
+  if (!apiKey)      { showMsg('API Key is required.', 'err');       return; }
+  if (!accessToken) { showMsg('Access Token is required.', 'err'); return; }
+
+  showMsg('', 'err');
+  document.getElementById('setup-panel').style.display   = 'none';
+  document.getElementById('screener-panel').style.display = 'block';
+
+  updateTFButtons(candleSec);
+  updateUniverseButtons(universe);
+  setLive('connecting');
+  initScreener();
+}
+
+function doDisconnect() {
+  stopScreener();
+  stopFno();
+  document.getElementById('screener-panel').style.display = 'none';
+  document.getElementById('setup-panel').style.display   = 'block';
+  setLive('off');
+}
+
+function showMsg(txt, type) {
+  var el = document.getElementById('setup-msg');
+  el.textContent = txt;
+  el.className = 'msg ' + (type || 'err');
+  el.style.display = txt ? 'block' : 'none';
+}
+
+function setLive(state) {
+  var b = document.getElementById('live-badge');
+  var t = document.getElementById('live-txt');
+  b.className = 'live-badge' + (state === 'live' ? '' : ' off');
+  t.textContent = state === 'live' ? 'LIVE' : state === 'connecting' ? 'CONNECTING' : 'OFFLINE';
+}
+
+// ── EQ SCREENER ────────────────────────────────────
+function fmtVol(n) {
+  if (n >= 1e7) return (n/1e7).toFixed(2) + 'Cr';
+  if (n >= 1e5) return (n/1e5).toFixed(2) + 'L';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K';
+  return Math.round(n).toLocaleString();
+}
+
+async function initScreener() {
+  document.getElementById('prog-wrap').style.display = 'block';
+  document.getElementById('prog-text').textContent = 'Fetching instruments...';
+  document.getElementById('prog-fill').style.width = '10%';
+  document.getElementById('prog-pct').textContent  = '10%';
+
+  try {
+    // Public endpoint - no Authorization header needed
+    var r = await fetch('https://api.kite.trade/instruments/NSE');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var csv   = await r.text();
+    var lines = csv.trim().split('\n');
+    var hdrs  = lines[0].split(',');
+    allInstr  = lines.slice(1).map(function(l) {
+      var v = l.split(','), o = {};
+      hdrs.forEach(function(h, i) { o[h.trim()] = (v[i] || '').trim(); });
+      return o;
+    }).filter(function(i) { return i.instrument_type === 'EQ'; });
+  } catch(e) {
+    console.warn('Using demo instruments');
+    allInstr = DEMO_INSTRUMENTS;
+  }
+
+  fnoInstr = allInstr.filter(function(i) { return FNO_SYMBOLS.has(i.tradingsymbol); });
+
+  document.getElementById('prog-fill').style.width = '50%';
+  document.getElementById('prog-pct').textContent  = '50%';
+  document.getElementById('prog-text').textContent = 'Connecting WebSocket...';
+
+  instruments = universe === 'fno' ? fnoInstr : allInstr;
+  tokenMap    = {};
+  instruments.forEach(function(i) { tokenMap[+i.instrument_token] = i.tradingsymbol; });
+
+  document.getElementById('stat-subscribed').textContent = instruments.length;
+  document.getElementById('stat-uni-lbl').textContent    = universe === 'fno' ? 'F&O Stocks' : 'NSE Stocks';
+
+  connectWS();
+}
+
+function connectWS() {
+  var url = 'wss://ws.kite.trade?api_key=' + encodeURIComponent(apiKey) + '&access_token=' + encodeURIComponent(accessToken);
+  ws = new WebSocket(url);
+  ws.binaryType = 'arraybuffer';
+
+  ws.onopen = function() {
+    setLive('live');
+    document.getElementById('prog-fill').style.width = '100%';
+    document.getElementById('prog-pct').textContent  = '100%';
+    setTimeout(function() { document.getElementById('prog-wrap').style.display = 'none'; }, 800);
+    subscribeAll();
+    startCandleEngine();
+  };
+
+  ws.onmessage = function(e) {
+    if (paused) return;
+    if (e.data instanceof ArrayBuffer) parseBinary(e.data);
+  };
+
+  ws.onerror = function() {};
+
+  ws.onclose = function() {
+    setLive('off');
+    if (candleTimer) clearInterval(candleTimer);
+    if (accessToken) setTimeout(connectWS, 5000);
+  };
+}
+
+function subscribeAll() {
+  var tokens = instruments.map(function(i) { return +i.instrument_token; });
+  for (var i = 0; i < tokens.length; i += 3000) {
+    var b = tokens.slice(i, i + 3000);
+    ws.send(JSON.stringify({ a: 'subscribe', v: b }));
+    ws.send(JSON.stringify({ a: 'mode', v: ['full', b] }));
+  }
+}
+
+function parseBinary(buf) {
+  if (buf.byteLength < 2) return;
+  var view  = new DataView(buf);
+  var count = view.getInt16(0);
+  var off   = 2;
+  for (var i = 0; i < count; i++) {
+    if (off + 2 > buf.byteLength) break;
+    var len = view.getInt16(off); off += 2;
+    if (off + len > buf.byteLength) break;
+    processTick(new DataView(buf, off, len), len);
+    off += len;
+  }
+}
+
+function processTick(v, len) {
+  try {
+    var token    = v.getInt32(0);
+    var ltp      = v.getInt32(4) / 100;
+    var sym      = tokenMap[token];
+    if (!sym) return;
+    var cumVol   = len >= 44 ? v.getInt32(40) : 0;
+    var prev     = (prevDayVol[token] !== undefined) ? prevDayVol[token] : cumVol;
+    var dVol     = Math.max(0, cumVol - prev);
+    prevDayVol[token] = cumVol;
+    var dayClose = len >= 28 ? v.getInt32(24) / 100 : ltp;
+    accumulate(token, sym, ltp, dVol, dayClose);
+  } catch(e) {}
+}
+
+function accumulate(token, sym, ltp, dVol, dayClose) {
+  if (!candles[token]) candles[token] = { sym: sym, history: [], current: null, ltp: ltp, dayClose: dayClose };
+  var c = candles[token];
+  c.ltp = ltp; c.dayClose = dayClose;
+  if (!c.current) {
+    c.current = { open: ltp, high: ltp, low: ltp, close: ltp, vol: dVol };
+  } else {
+    c.current.high  = Math.max(c.current.high, ltp);
+    c.current.low   = Math.min(c.current.low,  ltp);
+    c.current.close = ltp;
+    c.current.vol  += dVol;
+  }
+}
+
+function startCandleEngine() {
+  if (candleTimer) clearInterval(candleTimer);
+  if (cdTimer)     clearInterval(cdTimer);
+  var ms   = candleSec * 1000;
+  var now  = Date.now();
+  var next = Math.ceil(now / ms) * ms;
+  setTimeout(function() {
+    closeCandles();
+    candleTimer = setInterval(closeCandles, ms);
+  }, next - now);
+  startCD('stat-countdown', candleSec, next - now);
+}
+
+function startCD(elId, sec, firstMs) {
+  if (cdTimer) clearInterval(cdTimer);
+  var rem = Math.floor(firstMs / 1000);
+  var el  = document.getElementById(elId);
+  cdTimer = setInterval(function() {
+    if (rem <= 0) rem = sec;
+    if (el) el.textContent = rem + 's';
+    rem--;
+  }, 1000);
+}
+
+function closeCandles() {
+  var time   = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  var active = 0;
+  for (var token in candles) {
+    var c = candles[token];
+    if (!c.current) continue;
+    active++;
+    var closed = { open: c.current.open, high: c.current.high, low: c.current.low, close: c.current.close, vol: c.current.vol, time: time };
+    c.history.push(closed);
+    if (c.history.length > 120) c.history.shift();
+    c.current = null;
+
+    if (c.history.length > lookback) {
+      var past   = c.history.slice(-lookback - 1, -1);
+      var avgVol = past.reduce(function(s, x) { return s + x.vol; }, 0) / past.length;
+      if (avgVol > 0) {
+        var ratio = closed.vol / avgVol;
+        if (ratio >= threshold) {
+          var pct = c.dayClose > 0 ? (((c.ltp - c.dayClose) / c.dayClose) * 100).toFixed(2) : null;
+          fireEqSpike({
+            token: +token, sym: c.sym, ltp: c.ltp, dayClose: c.dayClose, pct: pct,
+            vol: closed.vol, avgVol: avgVol, ratio: ratio, time: time, tf: candleSec,
+            isFno: FNO_SYMBOLS.has(c.sym)
+          });
+        }
+      }
+    }
+  }
+  document.getElementById('stat-active').textContent = active;
+  startCD('stat-countdown', candleSec, candleSec * 1000);
+}
+
+function fireEqSpike(s) {
+  eqTotalToday++;
+  var idx = spikes.findIndex(function(x) { return x.sym === s.sym; });
+  if (idx >= 0) spikes[idx] = s;
+  else spikes.unshift(s);
+  if (spikes.length > 500) spikes.pop();
+  document.getElementById('stat-total').textContent = eqTotalToday;
+  renderEqTable();
+  showAlert(s.sym, s.ratio.toFixed(1) + 'x spike', s.ltp.toFixed(2), 'eq');
+  updateTicker(s);
+}
+
+function renderEqTable() {
+  var minR = +document.getElementById('min-ratio').value;
+  var srt  = document.getElementById('sort-eq').value;
+  var rows = spikes.filter(function(s) {
+    if (s.ratio < minR) return false;
+    if (eqFilter === 'mega') return s.ratio >= 10;
+    if (eqFilter === 'high') return s.ratio >= 5;
+    if (eqFilter === 'mod')  return s.ratio >= 3;
+    return true;
+  });
+  rows.sort(function(a, b) {
+    if (srt === 'ratio')  return b.ratio - a.ratio;
+    if (srt === 'volume') return b.vol   - a.vol;
+    return (b.time || '').localeCompare(a.time || '');
+  });
+
+  var tbody = document.getElementById('eq-tbody');
+  document.getElementById('stat-spikes').textContent = rows.length;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9"><div class="empty"><div class="empty-icon">📡</div><div class="empty-title">Waiting for spikes...</div><div class="empty-sub">Monitoring ' + instruments.length + ' stocks on ' + candleSec + 's candles.</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(s, i) {
+    var rCls  = s.ratio >= 10 ? 'r-mega' : s.ratio >= 5 ? 'r-high' : 'r-mod';
+    var rCol  = s.ratio >= 10 ? 'var(--red)' : s.ratio >= 5 ? 'var(--ylw)' : 'var(--grn)';
+    var rBg   = s.ratio >= 10 ? 'rgba(255,59,92,.09)' : s.ratio >= 5 ? 'rgba(255,170,0,.09)' : 'rgba(0,255,136,.07)';
+    var lbl   = s.ratio >= 10 ? 'MEGA' : s.ratio >= 5 ? 'HIGH' : 'MOD';
+    var pctTx = s.pct == null ? '--' : (s.pct > 0 ? '+' : '') + s.pct + '%';
+    var pCol  = s.pct == null ? 'var(--mut)' : s.pct > 0 ? '#00e87a' : 'var(--red)';
+    var spkPc = ((s.ratio - 1) * 100).toFixed(0);
+    return '<tr class="' + (i===0?'new-row':'') + '">' +
+      '<td><span style="font-weight:800">' + s.sym + '</span>' + (s.isFno ? ' <span class="tag tag-fno">F&O</span>' : '') + '<br><span style="font-size:9px;color:var(--mut)">' + s.time + '</span></td>' +
+      '<td style="font-weight:700">Rs.' + s.ltp.toFixed(2) + '</td>' +
+      '<td style="color:' + pCol + ';font-weight:700">' + pctTx + '</td>' +
+      '<td>' + fmtVol(s.vol) + '</td>' +
+      '<td><div style="height:4px;width:80px;background:var(--brd);border-radius:2px;overflow:hidden"><div style="height:4px;background:' + rCol + ';width:' + Math.min((s.vol/(s.avgVol*8))*100,100) + '%"></div></div><span style="font-size:9px;color:var(--mut)">avg ' + fmtVol(s.avgVol) + '</span></td>' +
+      '<td><span class="rpill ' + rCls + '">' + s.ratio.toFixed(1) + 'x</span></td>' +
+      '<td><div class="duo" style="background:' + rBg + '"><span class="big" style="color:' + rCol + '">+' + spkPc + '%</span><span class="sml">' + s.tf + 's TF</span></div></td>' +
+      '<td style="color:' + rCol + ';font-weight:800">' + lbl + '</td>' +
+      '<td style="color:var(--mut);font-size:10px">' + s.time + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function stopScreener() {
+  if (ws)          { ws.close(); ws = null; }
+  if (candleTimer) { clearInterval(candleTimer); candleTimer = null; }
+  if (cdTimer)     { clearInterval(cdTimer); cdTimer = null; }
+  candles = {}; prevDayVol = {}; spikes = [];
+  accessToken = '';
+}
+
+// ── EQ CONTROLS ────────────────────────────────────
+function setTF(s) {
+  candleSec = s;
+  ['tf10','tf20','tf30'].forEach(function(id) {
+    document.getElementById(id).className = 'seg' + (id === 'tf'+s ? ' on' : '');
+  });
+  // tf label updated via stats bar
+  candles = {}; prevDayVol = {};
+  if (candleTimer) { clearInterval(candleTimer); startCandleEngine(); }
+}
+
+function setFilter(f) {
+  eqFilter = f;
+  ['f-all','f-mega','f-high','f-mod'].forEach(function(id) {
+    document.getElementById(id).className = 'seg';
+  });
+  document.getElementById('f-' + f).className = 'seg on';
+  renderEqTable();
+}
+
+function setUniverse(u) {
+  universe = u;
+  instruments = u === 'fno' ? fnoInstr : allInstr;
+  tokenMap    = {};
+  instruments.forEach(function(i) { tokenMap[+i.instrument_token] = i.tradingsymbol; });
+  candles = {}; prevDayVol = {}; spikes = [];
+  document.getElementById('stat-subscribed').textContent = instruments.length;
+  document.getElementById('stat-uni-lbl').textContent    = u === 'fno' ? 'F&O Stocks' : 'NSE Stocks';
+  updateUniverseButtons(u);
+  if (ws && ws.readyState === 1) {
+    var all = allInstr.map(function(i) { return +i.instrument_token; });
+    ws.send(JSON.stringify({ a: 'unsubscribe', v: all }));
+    setTimeout(subscribeAll, 400);
+  }
+  renderEqTable();
+}
+
+function updateTFButtons(s) {
+  ['tf10','tf20','tf30'].forEach(function(id) {
+    document.getElementById(id).className = 'seg' + (id === 'tf'+s ? ' on' : '');
+  });
+}
+
+function updateUniverseButtons(u) {
+  document.getElementById('uni-all-btn').className = 'seg' + (u === 'all' ? ' on' : '');
+  document.getElementById('uni-fno-btn').className = 'seg' + (u === 'fno' ? ' on' : '');
+}
+
+function clearEq() {
+  spikes = [];
+  document.getElementById('stat-spikes').textContent = '0';
+  renderEqTable();
+}
+
+// ── F&O SCREENER ────────────────────────────────────
+function switchTab(t) {
+  document.getElementById('tab-eq').className   = 'tab-panel' + (t === 'eq'  ? ' on' : '');
+  document.getElementById('tab-fno').className  = 'tab-panel' + (t === 'fno' ? ' on' : '');
+  document.getElementById('tab-eq-btn').className  = 'tab' + (t === 'eq'  ? ' on' : '');
+  document.getElementById('tab-fno-btn').className = 'tab' + (t === 'fno' ? ' on-fno' : '');
+  if (t === 'fno' && !fnoStarted) initFno();
+}
+
+async function initFno() {
+  fnoStarted = true;
+  document.getElementById('fno-tbody').innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">📡</div><div class="empty-title">Loading F&O contracts...</div></div></td></tr>';
+  try {
+    // Public endpoint - no auth needed, works from browser without CORS issues
+    var r = await fetch('https://api.kite.trade/instruments/NFO');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var csv   = await r.text();
+    var lines = csv.trim().split('\n');
+    var hdrs  = lines[0].split(',');
+    fnoInstruments = lines.slice(1).map(function(l) {
+      var v = l.split(','), o = {};
+      hdrs.forEach(function(h, i) { o[h.trim()] = (v[i] || '').trim(); });
+      return o;
+    }).filter(function(i) {
+      var t = i.instrument_type;
+      return t === 'CE' || t === 'PE' || t === 'FUT';
+    });
+  } catch(e) {
+    // Fallback: derive F&O instruments from already-loaded NSE list using FNO_SYMBOLS
+    // These won't have strike/expiry but will still show volume/price spikes
+    fnoInstruments = allInstr.filter(function(i) { return FNO_SYMBOLS.has(i.tradingsymbol); }).map(function(i) {
+      return { instrument_token: i.instrument_token, tradingsymbol: i.tradingsymbol, name: i.tradingsymbol, instrument_type: 'FUT', strike: 0, expiry: '' };
+    });
+    console.warn('NFO fetch failed, using fallback:', e.message);
+  }
+
+  fnoInstruments.forEach(function(i) { fnoTokenMap[+i.instrument_token] = i; });
+  document.getElementById('fno-stat-contracts').textContent = fnoInstruments.length;
+  connectFnoWS();
+}
+
+function connectFnoWS() {
+  var url = 'wss://ws.kite.trade?api_key=' + encodeURIComponent(apiKey) + '&access_token=' + encodeURIComponent(accessToken);
+  fnoWs = new WebSocket(url);
+  fnoWs.binaryType = 'arraybuffer';
+  fnoWs.onopen    = function() { subscribeFnoAll(); startFnoCandleEngine(); };
+  fnoWs.onmessage = function(e) { if (!paused && e.data instanceof ArrayBuffer) parseFnoBinary(e.data); };
+  fnoWs.onerror   = function() {};
+  fnoWs.onclose   = function() { if (fnoStarted && accessToken) setTimeout(connectFnoWS, 5000); };
+}
+
+function subscribeFnoAll() {
+  var tokens = fnoInstruments.map(function(i) { return +i.instrument_token; });
+  for (var i = 0; i < tokens.length; i += 3000) {
+    var b = tokens.slice(i, i + 3000);
+    fnoWs.send(JSON.stringify({ a: 'subscribe', v: b }));
+    fnoWs.send(JSON.stringify({ a: 'mode', v: ['full', b] }));
+  }
+}
+
+function parseFnoBinary(buf) {
+  if (buf.byteLength < 2) return;
+  var view  = new DataView(buf);
+  var count = view.getInt16(0);
+  var off   = 2;
+  for (var i = 0; i < count; i++) {
+    if (off + 2 > buf.byteLength) break;
+    var len = view.getInt16(off); off += 2;
+    if (off + len > buf.byteLength) break;
+    processFnoTick(new DataView(buf, off, len), len);
+    off += len;
+  }
+}
+
+function processFnoTick(v, len) {
+  try {
+    var token = v.getInt32(0);
+    var ltp   = v.getInt32(4) / 100;
+    var instr = fnoTokenMap[token];
+    if (!instr) return;
+    var cumVol = len >= 44 ? v.getInt32(40) : 0;
+    var prev   = (fnoPrevVol[token] !== undefined) ? fnoPrevVol[token] : cumVol;
+    var dVol   = Math.max(0, cumVol - prev);
+    fnoPrevVol[token] = cumVol;
+    accumulateFno(token, instr, ltp, dVol);
+  } catch(e) {}
+}
+
+function accumulateFno(token, instr, ltp, dVol) {
+  if (!fnoCandles[token]) fnoCandles[token] = { instr: instr, history: [], current: null, ltp: ltp };
+  var c = fnoCandles[token];
+  c.ltp = ltp;
+  if (!c.current) {
+    c.current = { open: ltp, high: ltp, low: ltp, close: ltp, vol: dVol };
+  } else {
+    c.current.high  = Math.max(c.current.high, ltp);
+    c.current.low   = Math.min(c.current.low,  ltp);
+    c.current.close = ltp;
+    c.current.vol  += dVol;
+  }
+}
+
+function startFnoCandleEngine() {
+  if (fnoCandleTimer) clearInterval(fnoCandleTimer);
+  var ms   = fnoCandleSec * 1000;
+  var now  = Date.now();
+  var next = Math.ceil(now / ms) * ms;
+  setTimeout(function() {
+    closeFnoCandles();
+    fnoCandleTimer = setInterval(closeFnoCandles, ms);
+  }, next - now);
+  startFnoCD(next - now);
+}
+
+function startFnoCD(firstMs) {
+  if (fnoCdTimer) clearInterval(fnoCdTimer);
+  var rem = Math.floor(firstMs / 1000);
+  var el  = document.getElementById('fno-stat-countdown');
+  fnoCdTimer = setInterval(function() {
+    if (rem <= 0) rem = fnoCandleSec;
+    if (el) el.textContent = rem + 's';
+    rem--;
+  }, 1000);
+}
+
+function closeFnoCandles() {
+  var time = new Date().toLocaleTimeString('en-IN', { hour12: false });
+  var minVolR = parseFloat(document.getElementById('fno-min-vol').value) || 3;
+
+  for (var token in fnoCandles) {
+    var c = fnoCandles[token];
+    if (!c.current || c.current.vol === 0) continue;
+    var closed = { open: c.current.open, high: c.current.high, low: c.current.low, close: c.current.close, vol: c.current.vol, time: time };
+    c.history.push(closed);
+    if (c.history.length > 120) c.history.shift();
+    c.current = null;
+
+    if (closed.open <= 0) continue;
+    var pricePct    = ((closed.close - closed.open) / closed.open) * 100;
+    var absPricePct = Math.abs(pricePct);
+
+    if (c.history.length > fnoLookback) {
+      var past   = c.history.slice(-fnoLookback - 1, -1);
+      var avgVol = past.reduce(function(s, x) { return s + x.vol; }, 0) / past.length;
+      if (avgVol > 0) {
+        var volRatio = closed.vol / avgVol;
+        if (absPricePct >= fnoMinPrice || volRatio >= minVolR) {
+          fireFnoSpike({
+            token: +token,
+            sym:   c.instr.tradingsymbol,
+            name:  c.instr.name,
+            type:  c.instr.instrument_type,
+            strike: c.instr.strike,
+            expiry: c.instr.expiry,
+            ltp:   c.ltp,
+            candleOpen:  closed.open,
+            candleClose: closed.close,
+            pricePct:    pricePct.toFixed(2),
+            absPricePct: absPricePct,
+            vol:     closed.vol,
+            avgVol:  avgVol,
+            volRatio: volRatio,
+            volSpikePct: ((volRatio - 1) * 100).toFixed(0),
+            time: time, tf: fnoCandleSec
+          });
+        }
+      }
+    }
+  }
+  startFnoCD(fnoCandleSec * 1000);
+}
+
+function fireFnoSpike(s) {
+  fnoTotalToday++;
+  var idx = fnoSpikes.findIndex(function(x) { return x.sym === s.sym; });
+  if (idx >= 0) fnoSpikes[idx] = s;
+  else fnoSpikes.unshift(s);
+  if (fnoSpikes.length > 500) fnoSpikes.pop();
+  document.getElementById('fno-stat-spikes').textContent = fnoSpikes.length;
+  document.getElementById('fno-stat-total').textContent  = fnoTotalToday;
+  renderFnoTable();
+  showAlert(s.sym, 'Price ' + (s.pricePct > 0 ? '+' : '') + s.pricePct + '% | Vol ' + s.volRatio.toFixed(1) + 'x', s.ltp.toFixed(2), 'fno');
+}
+
+function renderFnoTable() {
+  var minVolR = parseFloat(document.getElementById('fno-min-vol').value) || 3;
+  var srt     = document.getElementById('fno-sort').value;
+
+  var rows = fnoSpikes.filter(function(s) {
+    if (fnoTypeFilter !== 'ALL' && s.type !== fnoTypeFilter) return false;
+    if (s.absPricePct < fnoMinPrice && s.volRatio < minVolR) return false;
+    return true;
+  });
+  rows.sort(function(a, b) {
+    if (srt === 'pricePct') return b.absPricePct - a.absPricePct;
+    if (srt === 'volRatio') return b.volRatio    - a.volRatio;
+    return (b.time || '').localeCompare(a.time || '');
+  });
+
+  var tbody = document.getElementById('fno-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty"><div class="empty-icon">🔍</div><div class="empty-title">No F&O spikes yet</div><div class="empty-sub">Scanning ' + fnoInstruments.length + ' CE/PE/FUT contracts on ' + fnoCandleSec + 's candles.</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(function(s, i) {
+    var pUp   = parseFloat(s.pricePct) >= 0;
+    var pCol  = pUp ? '#00e87a' : 'var(--red)';
+    var pBg   = pUp ? 'rgba(0,255,136,.08)' : 'rgba(255,59,92,.08)';
+    var pArrow= pUp ? '+' : '';
+    var vCol  = s.volRatio >= 10 ? 'var(--red)' : s.volRatio >= 5 ? 'var(--ylw)' : 'var(--grn)';
+    var vBg   = s.volRatio >= 10 ? 'rgba(255,59,92,.09)' : s.volRatio >= 5 ? 'rgba(255,170,0,.09)' : 'rgba(0,255,136,.07)';
+    var rCls  = s.volRatio >= 10 ? 'r-mega' : s.volRatio >= 5 ? 'r-high' : 'r-mod';
+    var typeTag = s.type === 'CE' ? '<span class="tag tag-ce">CE</span>' : s.type === 'PE' ? '<span class="tag tag-pe">PE</span>' : '<span class="tag tag-fut">FUT</span>';
+    var strike  = s.strike && +s.strike > 0 ? 'Rs.' + (+s.strike).toLocaleString() : '--';
+    var expiry  = s.expiry ? s.expiry.slice(0, 7) : '--';
+
+    return '<tr class="' + (i===0?'new-row':'') + '">' +
+      '<td style="font-weight:800">' + s.name + '</td>' +
+      '<td>' + typeTag + '</td>' +
+      '<td style="font-weight:700">' + strike + '</td>' +
+      '<td style="color:var(--mut);font-size:10px">' + expiry + '</td>' +
+      '<td style="font-weight:700">Rs.' + s.ltp.toFixed(2) + '</td>' +
+      '<td><div class="duo" style="background:' + pBg + '"><span class="big" style="color:' + pCol + '">' + pArrow + Math.abs(parseFloat(s.pricePct)).toFixed(1) + '%</span><span class="sml">Rs.' + s.candleOpen.toFixed(2) + ' to Rs.' + s.candleClose.toFixed(2) + '</span></div></td>' +
+      '<td style="color:var(--mut);font-size:10px">Rs.' + s.candleOpen.toFixed(2) + ' to Rs.' + s.candleClose.toFixed(2) + '</td>' +
+      '<td><div class="duo" style="background:' + vBg + '"><span class="big" style="color:' + vCol + '">+' + s.volSpikePct + '%</span><span class="sml">' + s.volRatio.toFixed(1) + 'x avg</span></div></td>' +
+      '<td><span class="rpill ' + rCls + '">' + s.volRatio.toFixed(1) + 'x</span></td>' +
+      '<td style="color:var(--mut)">' + fmtVol(s.vol) + '</td>' +
+      '<td style="color:var(--mut);font-size:10px">' + s.time + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function stopFno() {
+  if (fnoWs)          { fnoWs.close(); fnoWs = null; }
+  if (fnoCandleTimer) { clearInterval(fnoCandleTimer); fnoCandleTimer = null; }
+  if (fnoCdTimer)     { clearInterval(fnoCdTimer); fnoCdTimer = null; }
+  fnoStarted = false; fnoCandles = {}; fnoPrevVol = {}; fnoSpikes = [];
+}
+
+// ── F&O CONTROLS ───────────────────────────────────
+function setFnoTF(s) {
+  fnoCandleSec = s;
+  ['ftf10','ftf20','ftf30'].forEach(function(id) {
+    document.getElementById(id).className = 'seg' + (id === 'ftf'+s ? ' on' : '');
+  });
+  fnoCandles = {}; fnoPrevVol = {};
+  if (fnoCandleTimer) { clearInterval(fnoCandleTimer); startFnoCandleEngine(); }
+}
+
+function setFnoType(t) {
+  fnoTypeFilter = t;
+  ['ft-all','ft-ce','ft-pe','ft-fut'].forEach(function(id) { document.getElementById(id).className = 'seg'; });
+  var map = { 'ALL': 'ft-all', 'CE': 'ft-ce', 'PE': 'ft-pe', 'FUT': 'ft-fut' };
+  document.getElementById(map[t]).className = 'seg on';
+  renderFnoTable();
+}
+
+function setMinPrice(p) {
+  fnoMinPrice = p;
+  ['fp20','fp50','fp100','fp200'].forEach(function(id) { document.getElementById(id).className = 'seg'; });
+  document.getElementById('fp' + p).className = 'seg on';
+  renderFnoTable();
+}
+
+function clearFno() {
+  fnoSpikes = [];
+  document.getElementById('fno-stat-spikes').textContent = '0';
+  renderFnoTable();
+}
+
+// ── TICKER & ALERTS ────────────────────────────────
+function updateTicker(s) {
+  var col = s.pct != null && s.pct > 0 ? 'var(--grn)' : s.pct < 0 ? 'var(--red)' : 'var(--mut)';
+  var inner = document.getElementById('ticker-inner');
+  var item  = document.createElement('span');
+  item.className = 'ticker-item';
+  item.innerHTML = '<span class="ticker-sym">' + s.sym + '</span> <span style="color:' + col + '">Rs.' + s.ltp.toFixed(2) + ' ' + s.ratio.toFixed(1) + 'x</span>';
+  inner.appendChild(item);
+  if (inner.children.length > 40) inner.removeChild(inner.children[0]);
+}
+
+function showAlert(sym, detail, price, type) {
+  var panel = document.getElementById('alerts');
+  var el    = document.createElement('div');
+  el.className = 'alert';
+  el.innerHTML = '<div class="alert-sym">' + sym + '</div><div style="color:var(--mut);font-size:10px">Rs.' + price + ' | ' + detail + '</div>';
+  panel.appendChild(el);
+  if (panel.children.length > 5) panel.removeChild(panel.children[0]);
+  setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 8000);
+}
+
+// ── DATA ───────────────────────────────────────────
+
+const FNO_SYMBOLS = new Set([
+  'AARTIIND','ABB','ABBOTINDIA','ABCAPITAL','ABFRL','ACC','ADANIENT','ADANIPORTS',
+  'ALKEM','AMBUJACEM','ANGELONE','APLAPOLLO','APOLLOHOSP','APOLLOTYRE','ASHOKLEY',
+  'ASIANPAINT','ASTRAL','ATGL','ATUL','AUBANK','AUROPHARMA','AXISBANK','BAJAJ-AUTO',
+  'BAJAJFINSV','BAJFINANCE','BALKRISIND','BANDHANBNK','BANKBARODA','BANKINDIA',
+  'BATAINDIA','BEL','BERGEPAINT','BHARATFORG','BHEL','BHARTIARTL','BIOCON','BPCL',
+  'BRITANNIA','BSOFT','CANBK','CANFINHOME','CASTROLIND','CDSL','CESC','CHAMBLFERT',
+  'CHOLAFIN','CIPLA','COALINDIA','COFORGE','COLPAL','CONCOR','COROMANDEL','CROMPTON',
+  'CUB','CUMMINSIND','DABUR','DALBHARAT','DEEPAKNTR','DELTACORP','DIVISLAB','DIXON',
+  'DLF','DRREDDY','EICHERMOT','ESCORTS','EXIDEIND','FEDERALBNK','FORCEMOT','FORTIS',
+  'GAIL','GLENMARK','GMRINFRA','GNFC','GODREJCP','GODREJPROP','GRANULES','GRASIM',
+  'GSPL','GUJGASLTD','HAL','HAVELLS','HCLTECH','HDFCAMC','HDFCBANK','HDFCLIFE',
+  'HEROMOTOCO','HINDALCO','HINDCOPPER','HINDPETRO','HINDUNILVR','HONAUT','IBULHSGFIN',
+  'ICICIBANK','ICICIGI','ICICIPRULI','IDEA','IDFCFIRSTB','IEX','IGL','INDHOTEL',
+  'INDIACEM','INDIAMART','INDIGO','INDUSINDBK','INDUSTOWER','INFY','INTELLECT',
+  'IOC','IPCALAB','IRB','IRCTC','ISEC','ITC','JINDALSTEL','JKCEMENT','JSWENERGY',
+  'JSWSTEEL','JUBLFOOD','KAJARIACER','KEC','KOTAKBANK','KPITTECH','L&TFH','LALPATHLAB',
+  'LAURUSLABS','LT','LTIM','LTTS','LUPIN','M&M','M&MFIN','MANAPPURAM','MARICO',
+  'MARUTI','MCDOWELL-N','MCX','METROPOLIS','MFSL','MGL','MOTHERSON','MPHASIS',
+  'MRF','MUTHOOTFIN','NATIONALUM','NAUKRI','NAVINFLUOR','NESTLEIND','NMDC','NTPC',
+  'OBEROIRLTY','OFSS','ONGC','PAGEIND','PEL','PERSISTENT','PETRONET','PFC','PIDILITIND',
+  'PIIND','PNB','POLYCAB','POWERGRID','PVRINOX','RAIN','RAMCOCEM','RBLBANK','RECLTD',
+  'RELIANCE','SAIL','SAREGAMA','SBI','SBICARD','SBILIFE','SHREECEM','SHRIRAMFIN',
+  'SIEMENS','SRF','STAR','SUNPHARMA','SUNTV','SUPREMEIND','SYNGENE','TATACHEM',
+  'TATACOMM','TATACONSUM','TATAMOTORS','TATAPOWER','TATASTEEL','TCS','TECHM','TITAN',
+  'TORNTPHARM','TORNTPOWER','TRENT','TVSMOTOR','UBL','ULTRACEMCO','UPL','VEDL',
+  'VOLTAS','WHIRLPOOL','WIPRO','ZEEL','ZYDUSLIFE','BANKBEES','NIFTYBEES',
+  'MOTHERSON','IIFL','ANANDRATHI','SBIN','HDFCBANK','ICICIBANK','AXISBANK'
+]);
+
+const DEMO_INSTRUMENTS = [
+  {instrument_token:256265,tradingsymbol:'RELIANCE'},{instrument_token:779521,tradingsymbol:'TCS'},
+  {instrument_token:408065,tradingsymbol:'INFY'},{instrument_token:341249,tradingsymbol:'HDFCBANK'},
+  {instrument_token:1270529,tradingsymbol:'ICICIBANK'},{instrument_token:2714625,tradingsymbol:'BAJFINANCE'},
+  {instrument_token:3861249,tradingsymbol:'AXISBANK'},{instrument_token:2953217,tradingsymbol:'SBIN'},
+  {instrument_token:895745,tradingsymbol:'HINDUNILVR'},{instrument_token:1346049,tradingsymbol:'ITC'},
+  {instrument_token:519937,tradingsymbol:'KOTAKBANK'},{instrument_token:582914,tradingsymbol:'LT'},
+  {instrument_token:975873,tradingsymbol:'NESTLEIND'},{instrument_token:492033,tradingsymbol:'ONGC'},
+  {instrument_token:2977281,tradingsymbol:'TITAN'},{instrument_token:633601,tradingsymbol:'ULTRACEMCO'},
+  {instrument_token:3001089,tradingsymbol:'ASIANPAINT'},{instrument_token:4267265,tradingsymbol:'ADANIENT'},
+  {instrument_token:325121,tradingsymbol:'BHARTIARTL'},{instrument_token:2815745,tradingsymbol:'WIPRO'},
+  {instrument_token:1374721,tradingsymbol:'TATAMOTORS'},{instrument_token:884737,tradingsymbol:'TATASTEEL'},
+  {instrument_token:2029313,tradingsymbol:'HCLTECH'},{instrument_token:5215745,tradingsymbol:'SUNPHARMA'},
+  {instrument_token:806401,tradingsymbol:'POWERGRID'},{instrument_token:460033,tradingsymbol:'NTPC'},
+];
+
+</script>
+</body>
+</html>
