@@ -545,6 +545,21 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .tf-btn {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    transition: all 0.15s;
+    letter-spacing: 0.5px;
+  }
+  .tf-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .tf-btn.active { background: rgba(0,255,136,0.12); border-color: var(--accent); color: var(--accent); }
+
   ::-webkit-scrollbar { width: 5px; height: 5px; }
   ::-webkit-scrollbar-track { background: var(--surface); }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -653,11 +668,11 @@
         </select>
       </div>
       <div>
-        <label class="form-label">Avg Lookback Candles</label>
-        <select class="form-input" id="lookback-select">
-          <option value="10">10 candles (~5 min)</option>
-          <option value="20" selected>20 candles (~10 min) ✓</option>
-          <option value="40">40 candles (~20 min)</option>
+        <label class="form-label">Default Timeframe</label>
+        <select class="form-input" id="tf-select">
+          <option value="10">10 seconds</option>
+          <option value="20">20 seconds</option>
+          <option value="30" selected>30 seconds ✓</option>
         </select>
       </div>
     </div>
@@ -726,6 +741,12 @@
       <div><div class="stat-val" id="stat-candle-time" style="font-size:12px;color:var(--muted)">—</div><div class="stat-lbl">Next Candle</div></div>
     </div>
     <div class="controls">
+      <span class="ctrl-label">TIMEFRAME</span>
+      <div id="tf-btns" style="display:flex;gap:4px">
+        <button class="tf-btn" data-tf="10"  onclick="setTimeframe(10,this)">10s</button>
+        <button class="tf-btn" data-tf="20"  onclick="setTimeframe(20,this)">20s</button>
+        <button class="tf-btn active" data-tf="30" onclick="setTimeframe(30,this)">30s</button>
+      </div>
       <span class="ctrl-label">MIN RATIO</span>
       <select class="form-input" id="filter-ratio" onchange="renderTable()">
         <option value="2">2x+</option>
@@ -765,7 +786,7 @@
   <!-- TABLE HEADER -->
   <div class="section-header">
     <div class="section-title">
-      Volume Spikes — 30s Candles
+      Volume Spikes — <span id="tf-label">30s</span> Candles
       <span class="count-badge" id="spike-count">0</span>
     </div>
     <div class="last-update" id="last-update">Waiting for first candle close…</div>
@@ -824,6 +845,7 @@ let apiKey        = '';
 let accessToken   = '';
 let candleTimer   = null;
 let countdownInt  = null;
+let candleSeconds = 30;        // active timeframe in seconds
 
 // ══════════════════════════════════
 // SETUP / AUTH
@@ -839,13 +861,18 @@ function startLogin() {
 }
 
 function connectWithToken() {
-  apiKey      = document.getElementById('api-key').value.trim();
-  accessToken = document.getElementById('access-token').value.trim();
-  threshold   = +document.getElementById('threshold-select').value;
-  lookback    = +document.getElementById('lookback-select').value;
+  apiKey        = document.getElementById('api-key').value.trim();
+  accessToken   = document.getElementById('access-token').value.trim();
+  threshold     = +document.getElementById('threshold-select').value;
+  lookback      = 20;
+  candleSeconds = +document.getElementById('tf-select').value;
   if (!apiKey)      { showErr('API Key is required.');      return; }
   if (!accessToken) { showErr('Access Token is required.'); return; }
   showErr('');
+  document.querySelectorAll('.tf-btn').forEach(b => {
+    b.classList.toggle('active', +b.dataset.tf === candleSeconds);
+  });
+  document.getElementById('tf-label').textContent = candleSeconds + 's';
   initScreener();
 }
 
@@ -1009,13 +1036,33 @@ function accumulateTick(token, sym, ltp, dVol, dayClose) {
 }
 
 function startCandleEngine() {
+  if (candleTimer)  clearInterval(candleTimer);
+  if (countdownInt) clearInterval(countdownInt);
+  const ms    = candleSeconds * 1000;
   const now   = Date.now();
-  const next  = Math.ceil(now / 30000) * 30000;
+  const next  = Math.ceil(now / ms) * ms;
   setTimeout(() => {
     closeCandles();
-    candleTimer = setInterval(closeCandles, 30000);
+    candleTimer = setInterval(closeCandles, ms);
   }, next - now);
   startCountdown(next - now);
+}
+
+function setTimeframe(sec, el) {
+  candleSeconds = sec;
+  // clear existing candle data so old mixed-timeframe candles don't skew averages
+  for (const token in candles) {
+    candles[token].history = [];
+    candles[token].current = null;
+  }
+  spikes = [];
+  document.getElementById('stat-spikes').textContent = 0;
+  document.getElementById('spike-count').textContent = 0;
+  document.getElementById('tf-label').textContent = sec + 's';
+  document.querySelectorAll('.tf-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+  startCandleEngine();   // restart engine with new interval
 }
 
 function startCountdown(msToNext) {
@@ -1023,7 +1070,7 @@ function startCountdown(msToNext) {
   let remaining = Math.floor(msToNext / 1000);
   const el = document.getElementById('stat-candle-time');
   countdownInt = setInterval(() => {
-    if (remaining <= 0) { remaining = 30; }
+    if (remaining <= 0) { remaining = candleSeconds; }
     el.textContent = remaining + 's';
     remaining--;
   }, 1000);
@@ -1058,8 +1105,7 @@ function closeCandles() {
   }
 
   document.getElementById('stat-active').textContent = active;
-  // Reset countdown
-  startCountdown(30000);
+  startCountdown(candleSeconds * 1000);
 }
 
 // ══════════════════════════════════
@@ -1112,7 +1158,7 @@ function renderTable() {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
       <div class="empty-icon">🔍</div>
       <div class="empty-title">No spikes yet</div>
-      <div class="empty-sub">Monitoring ${Object.keys(candles).length} stocks on 30s candles…<br>Spikes appear as candles close every 30 seconds.</div>
+      <div class="empty-sub">Monitoring ${Object.keys(candles).length} stocks on ${candleSeconds}s candles…<br>Spikes appear as candles close every ${candleSeconds} seconds.</div>
     </div></td></tr>`;
     return;
   }
