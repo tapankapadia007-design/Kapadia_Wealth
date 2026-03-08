@@ -545,6 +545,23 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .univ-btn {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+  .univ-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+  .univ-btn.active { background: rgba(0,153,255,0.12); border-color: var(--accent2); color: var(--accent2); }
+  .univ-btn.fno.active { background: rgba(255,59,92,0.12); border-color: var(--danger); color: var(--danger); }
+  .univ-btn.fno:hover  { border-color: var(--danger); color: var(--danger); }
+
   .tf-btn {
     padding: 5px 12px;
     border-radius: 6px;
@@ -726,7 +743,7 @@
   <!-- STATS BAR -->
   <div class="top-bar">
     <div class="stat-chip">
-      <div><div class="stat-val" id="stat-subscribed">0</div><div class="stat-lbl">Subscribed</div></div>
+      <div><div class="stat-val" id="stat-subscribed">0</div><div class="stat-lbl" id="stat-universe-label">NSE stocks</div></div>
     </div>
     <div class="stat-chip">
       <div><div class="stat-val" id="stat-active">0</div><div class="stat-lbl">Active Ticks</div></div>
@@ -774,8 +791,12 @@
 
   <!-- FILTER CHIPS -->
   <div class="filter-bar">
-    <span class="ctrl-label">FILTER:</span>
-    <button class="filter-chip active" onclick="setFilter('all',this)">ALL SPIKES</button>
+    <span class="ctrl-label">UNIVERSE:</span>
+    <button class="univ-btn active" onclick="switchUniverse('all',this)">📊 ALL NSE</button>
+    <button class="univ-btn fno"    onclick="switchUniverse('fno',this)">🔥 F&amp;O ONLY</button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 6px"></div>
+    <span class="ctrl-label">SPIKE:</span>
+    <button class="filter-chip active" onclick="setFilter('all',this)">ALL</button>
     <button class="filter-chip" onclick="setFilter('mega',this)">🔴 MEGA 10x+</button>
     <button class="filter-chip" onclick="setFilter('high',this)">🟡 HIGH 5x+</button>
     <button class="filter-chip" onclick="setFilter('mod',this)">🟢 MOD 3x+</button>
@@ -845,7 +866,10 @@ let apiKey        = '';
 let accessToken   = '';
 let candleTimer   = null;
 let countdownInt  = null;
-let candleSeconds = 30;        // active timeframe in seconds
+let candleSeconds  = 30;        // active timeframe in seconds
+let stockUniverse  = 'all';     // 'all' | 'fno'
+let allInstruments = [];        // full NSE EQ list
+let fnoInstruments = [];        // F&O eligible subset
 
 // ══════════════════════════════════
 // SETUP / AUTH
@@ -925,20 +949,60 @@ async function fetchInstruments() {
     const csv = await r.text();
     const lines = csv.trim().split('\n');
     const hdrs  = lines[0].split(',');
-    instruments = lines.slice(1).map(l => {
+    allInstruments = lines.slice(1).map(l => {
       const v = l.split(',');
       const o = {};
       hdrs.forEach((h,i) => o[h.trim()] = (v[i]||'').trim());
       return o;
     }).filter(i => i.instrument_type === 'EQ');
+    // Build F&O subset by matching against known F&O symbols
+    fnoInstruments = allInstruments.filter(i => FNO_SYMBOLS.has(i.tradingsymbol));
+    instruments = stockUniverse === 'fno' ? fnoInstruments : allInstruments;
     instruments.forEach(i => tokenMap[+i.instrument_token] = i.tradingsymbol);
-    document.getElementById('stat-subscribed').textContent = instruments.length;
+    updateUniverseStat();
   } catch(e) {
     console.warn('Instrument fetch failed, using demo list:', e);
-    instruments = DEMO_INSTRUMENTS;
+    allInstruments = DEMO_INSTRUMENTS;
+    fnoInstruments = DEMO_INSTRUMENTS.filter(i => FNO_SYMBOLS.has(i.tradingsymbol));
+    instruments = stockUniverse === 'fno' ? fnoInstruments : allInstruments;
     instruments.forEach(i => tokenMap[i.instrument_token] = i.tradingsymbol);
-    document.getElementById('stat-subscribed').textContent = instruments.length + ' (demo)';
+    updateUniverseStat();
   }
+}
+
+function updateUniverseStat() {
+  const label = stockUniverse === 'fno'
+    ? `${instruments.length} F&O stocks`
+    : `${instruments.length} NSE stocks`;
+  document.getElementById('stat-subscribed').textContent = instruments.length;
+  document.getElementById('stat-universe-label').textContent = label;
+}
+
+function switchUniverse(u, el) {
+  stockUniverse = u;
+  document.querySelectorAll('.univ-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+
+  // Rebuild instruments list
+  instruments = u === 'fno' ? fnoInstruments : allInstruments;
+  // Reset token map
+  tokenMap = {};
+  instruments.forEach(i => tokenMap[+i.instrument_token] = i.tradingsymbol);
+  updateUniverseStat();
+
+  // Re-subscribe on websocket
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    // Unsubscribe all, then re-subscribe new universe
+    const allTokens = allInstruments.map(i => +i.instrument_token);
+    ws.send(JSON.stringify({ a: 'unsubscribe', v: allTokens }));
+    setTimeout(subscribeAll, 300);
+  }
+
+  // Clear candle data & spikes for clean restart
+  candles = {}; spikes = []; prevDayVol = {};
+  document.getElementById('stat-spikes').textContent = 0;
+  document.getElementById('spike-count').textContent = 0;
+  renderTable();
 }
 
 // ══════════════════════════════════
@@ -1140,6 +1204,7 @@ function renderTable() {
 
   let rows = spikes.filter(s => {
     if (s.ratio < minRatio) return false;
+    if (stockUniverse === 'fno' && !FNO_SYMBOLS.has(s.sym)) return false;
     if (activeFilter === 'mega') return s.ratio >= 10;
     if (activeFilter === 'high') return s.ratio >= 5;
     if (activeFilter === 'mod')  return s.ratio >= 3;
@@ -1158,7 +1223,7 @@ function renderTable() {
     tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
       <div class="empty-icon">🔍</div>
       <div class="empty-title">No spikes yet</div>
-      <div class="empty-sub">Monitoring ${Object.keys(candles).length} stocks on ${candleSeconds}s candles…<br>Spikes appear as candles close every ${candleSeconds} seconds.</div>
+      <div class="empty-sub">Monitoring ${instruments.length} ${stockUniverse === 'fno' ? 'F&O' : 'NSE'} stocks on ${candleSeconds}s candles…<br>Spikes appear as candles close every ${candleSeconds} seconds.</div>
     </div></td></tr>`;
     return;
   }
@@ -1173,10 +1238,13 @@ function renderTable() {
                       : +s.pct > 0 ? `<span class="change-pos">+${s.pct}%</span>`
                       : +s.pct < 0 ? `<span class="change-neg">${s.pct}%</span>`
                       : '<span class="change-neu">0.00%</span>';
+    const fnoBadge   = FNO_SYMBOLS.has(s.sym)
+      ? `<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(255,59,92,0.12);color:var(--danger);border:1px solid rgba(255,59,92,0.25);font-weight:700;margin-left:5px">F&O</span>`
+      : '';
     const isNew = i === 0 ? 'new-spike' : '';
 
     return `<tr class="${isNew}">
-      <td><div class="sym-cell">${s.sym}</div></td>
+      <td><div class="sym-cell">${s.sym}${fnoBadge}</div></td>
       <td>₹${s.ltp.toFixed(2)}</td>
       <td>${chgHtml}</td>
       <td>${fmtVol(s.vol)}</td>
@@ -1269,6 +1337,39 @@ function setFilter(f, el) {
   el.classList.add('active');
   renderTable();
 }
+
+// ══════════════════════════════════
+// NSE F&O ELIGIBLE STOCKS (current list ~200 stocks)
+// ══════════════════════════════════
+const FNO_SYMBOLS = new Set([
+  'AARTIIND','ABB','ABBOTINDIA','ABCAPITAL','ABFRL','ACC','ADANIENT','ADANIPORTS',
+  'ALKEM','AMBUJACEM','ANGELONE','APLAPOLLO','APOLLOHOSP','APOLLOTYRE','ASHOKLEY',
+  'ASIANPAINT','ASTRAL','ATGL','ATUL','AUBANK','AUROPHARMA','AXISBANK','BAJAJ-AUTO',
+  'BAJAJFINSV','BAJFINANCE','BALKRISIND','BANDHANBNK','BANKBARODA','BANKINDIA',
+  'BATAINDIA','BEL','BERGEPAINT','BHARATFORG','BHEL','BHARTIARTL','BIOCON','BPCL',
+  'BRITANNIA','BSOFT','CANBK','CANFINHOME','CASTROLIND','CDSL','CESC','CHAMBLFERT',
+  'CHOLAFIN','CIPLA','COALINDIA','COFORGE','COLPAL','CONCOR','COROMANDEL','CROMPTON',
+  'CUB','CUMMINSIND','DABUR','DALBHARAT','DEEPAKNTR','DELTACORP','DIVISLAB','DIXON',
+  'DLF','DRREDDY','EICHERMOT','ESCORTS','EXIDEIND','FEDERALBNK','FORCEMOT','FORTIS',
+  'GAIL','GLENMARK','GMRINFRA','GNFC','GODREJCP','GODREJPROP','GRANULES','GRASIM',
+  'GSPL','GUJGASLTD','HAL','HAVELLS','HCLTECH','HDFCAMC','HDFCBANK','HDFCLIFE',
+  'HEROMOTOCO','HINDALCO','HINDCOPPER','HINDPETRO','HINDUNILVR','HONAUT','IBULHSGFIN',
+  'ICICIBANK','ICICIGI','ICICIPRULI','IDEA','IDFCFIRSTB','IEX','IGL','INDHOTEL',
+  'INDIACEM','INDIAMART','INDIGO','INDUSINDBK','INDUSTOWER','INFY','INTELLECT',
+  'IOC','IPCALAB','IRB','IRCTC','ISEC','ITC','JINDALSTEL','JKCEMENT','JSWENERGY',
+  'JSWSTEEL','JUBLFOOD','KAJARIACER','KEC','KOTAKBANK','KPITTECH','L&TFH','LALPATHLAB',
+  'LAURUSLABS','LT','LTIM','LTTS','LUPIN','M&M','M&MFIN','MANAPPURAM','MARICO',
+  'MARUTI','MCDOWELL-N','MCX','METROPOLIS','MFSL','MGL','MOTHERSON','MPHASIS',
+  'MRF','MUTHOOTFIN','NATIONALUM','NAUKRI','NAVINFLUOR','NESTLEIND','NMDC','NTPC',
+  'OBEROIRLTY','OFSS','ONGC','PAGEIND','PEL','PERSISTENT','PETRONET','PFC','PIDILITIND',
+  'PIIND','PNB','POLYCAB','POWERGRID','PVRINOX','RAIN','RAMCOCEM','RBLBANK','RECLTD',
+  'RELIANCE','SAIL','SAREGAMA','SBI','SBICARD','SBILIFE','SHREECEM','SHRIRAMFIN',
+  'SIEMENS','SRF','STAR','SUNPHARMA','SUNTV','SUPREMEIND','SYNGENE','TATACHEM',
+  'TATACOMM','TATACONSUM','TATAMOTORS','TATAPOWER','TATASTEEL','TCS','TECHM','TITAN',
+  'TORNTPHARM','TORNTPOWER','TRENT','TVSMOTOR','UBL','ULTRACEMCO','UPL','VEDL',
+  'VOLTAS','WHIRLPOOL','WIPRO','ZEEL','ZYDUSLIFE','BANKBEES','NIFTYBEES',
+  'MOTHERSON','IIFL','ANANDRATHI','SBIN','HDFCBANK','ICICIBANK','AXISBANK'
+]);
 
 // ══════════════════════════════════
 // DEMO INSTRUMENTS (fallback if API fails)
