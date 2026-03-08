@@ -621,6 +621,50 @@
     .top-bar{gap:8px}
     .controls{margin-left:0;width:100%}
   }
+
+  /* ── TABS ── */
+  .tab-bar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:49px; z-index:90; }
+  .tab-btn { flex:1; padding:12px 6px; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--muted); background:transparent; border:none; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:5px; }
+  .tab-btn:hover { color:var(--text); }
+  .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-btn.fno-tab.active { color:var(--danger); border-bottom-color:var(--danger); }
+  .tab-panel { display:none; }
+  .tab-panel.active { display:block; }
+
+  .fno-bar { padding:10px 16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); background:var(--surface); flex-wrap:wrap; }
+  .type-btn { padding:5px 13px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:800; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted); transition:all .15s; }
+  .type-btn:hover:not(.active) { border-color:var(--muted); color:var(--text); }
+  .type-btn.active-all  { background:rgba(0,255,136,0.1);  border-color:var(--accent);  color:var(--accent);  }
+  .type-btn.active-ce   { background:rgba(0,153,255,0.12); border-color:var(--accent2); color:var(--accent2); }
+  .type-btn.active-pe   { background:rgba(255,59,92,0.12); border-color:var(--danger);  color:var(--danger);  }
+  .type-btn.active-fut  { background:rgba(255,170,0,0.12); border-color:var(--warn);    color:var(--warn);    }
+
+  .fno-table-wrap { overflow-x:auto; }
+  .fno-table { width:100%; border-collapse:collapse; font-size:11px; }
+  .fno-table thead tr { background:var(--surface2); border-bottom:1px solid var(--border); }
+  .fno-table th { padding:9px 12px; text-align:left; font-size:9px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+  .fno-table tbody tr { border-bottom:1px solid rgba(30,45,61,0.4); transition:background .15s; }
+  .fno-table tbody tr:hover { background:rgba(255,255,255,0.02); }
+  .fno-table tbody tr.fno-new { animation:spikeIn 1.5s ease-out; }
+  .fno-table td { padding:9px 12px; white-space:nowrap; font-size:11px; }
+
+  .tag-ce  { display:inline-block; padding:1px 6px; border-radius:3px; font-size:9px; font-weight:800; background:rgba(0,153,255,0.15); color:var(--accent2); border:1px solid rgba(0,153,255,0.3); }
+  .tag-pe  { display:inline-block; padding:1px 6px; border-radius:3px; font-size:9px; font-weight:800; background:rgba(255,59,92,0.15);  color:var(--danger);  border:1px solid rgba(255,59,92,0.3);  }
+  .tag-fut { display:inline-block; padding:1px 6px; border-radius:3px; font-size:9px; font-weight:800; background:rgba(255,170,0,0.15);  color:var(--warn);    border:1px solid rgba(255,170,0,0.3);  }
+
+  .spike-duo { display:inline-flex; flex-direction:column; align-items:center; padding:3px 8px; border-radius:6px; }
+  .spike-duo .big { font-weight:900; font-size:13px; font-family:'JetBrains Mono',monospace; }
+  .spike-duo .sml { font-size:9px; color:var(--muted); margin-top:1px; }
+
+  .fno-stat-chip { display:flex; align-items:center; gap:8px; background:var(--surface2); border:1px solid var(--border); border-radius:6px; padding:5px 12px; }
+  .fno-stat-val  { font-weight:800; font-size:15px; color:var(--danger); font-family:'Syne',sans-serif; }
+  .fno-stat-lbl  { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px; }
+
+  .pct-filter-row { display:flex; align-items:center; gap:8px; padding:8px 16px; background:var(--surface); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .pct-chip { padding:4px 12px; border-radius:20px; font-size:10px; font-weight:700; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted); font-family:'JetBrains Mono',monospace; transition:all .15s; }
+  .pct-chip.active { background:rgba(255,59,92,0.1); border-color:var(--danger); color:var(--danger); }
+  .pct-chip:hover:not(.active) { border-color:var(--muted); color:var(--text); }
+
 </style>
 </head>
 <body>
@@ -740,6 +784,15 @@
     </div>
   </div>
 
+
+  <!-- TAB BAR -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('eq',this)">📊 EQ SCREENER</button>
+    <button class="tab-btn fno-tab" onclick="switchTab('fno',this)">🔥 F&O OPTIONS SCREENER</button>
+  </div>
+
+  <!-- EQ TAB -->
+  <div class="tab-panel active" id="tab-eq">
   <!-- STATS BAR -->
   <div class="top-bar">
     <div class="stat-chip">
@@ -820,17 +873,18 @@
         <tr>
           <th>Symbol</th>
           <th>LTP (₹)</th>
-          <th>Chg %</th>
+          <th>Price Chg %</th>
           <th>Candle Vol</th>
           <th>vs Avg Volume</th>
           <th>Ratio</th>
+          <th>Vol Spike %</th>
           <th>Spike Type</th>
           <th>Time</th>
         </tr>
       </thead>
       <tbody id="spike-tbody">
         <tr>
-          <td colspan="8">
+          <td colspan="9">
             <div class="empty-state">
               <div class="empty-icon">📡</div>
               <div class="empty-title">Awaiting WebSocket stream…</div>
@@ -841,7 +895,105 @@
       </tbody>
     </table>
   </div>
-</div>
+
+  </div><!-- /tab-eq -->
+
+  <!-- F&O TAB PANEL -->
+  <div class="tab-panel" id="tab-fno">
+
+    <!-- F&O STATS -->
+    <div class="fno-bar">
+      <div class="fno-stat-chip">
+        <div><div class="fno-stat-val" id="fno-stat-contracts">0</div><div class="fno-stat-lbl">Contracts</div></div>
+      </div>
+      <div class="fno-stat-chip">
+        <div><div class="fno-stat-val" id="fno-stat-spikes" style="color:var(--danger)">0</div><div class="fno-stat-lbl">Spikes</div></div>
+      </div>
+      <div class="fno-stat-chip">
+        <div><div class="fno-stat-val" id="fno-stat-total" style="color:var(--warn)">0</div><div class="fno-stat-lbl">Today</div></div>
+      </div>
+      <div class="fno-stat-chip">
+        <div><div class="fno-stat-val" id="fno-stat-countdown" style="font-size:12px;color:var(--muted)">—</div><div class="fno-stat-lbl">Next Candle</div></div>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+        <span class="ctrl-label">TF</span>
+        <button class="tf-btn" data-ftf="10"  onclick="setFnoTF(10,this)">10s</button>
+        <button class="tf-btn" data-ftf="20"  onclick="setFnoTF(20,this)">20s</button>
+        <button class="tf-btn active" data-ftf="30" onclick="setFnoTF(30,this)">30s</button>
+        <button class="btn btn-sm" onclick="clearFnoSpikes()" style="margin-left:8px">Clear</button>
+      </div>
+    </div>
+
+    <!-- TYPE FILTER -->
+    <div class="fno-bar">
+      <span class="ctrl-label">TYPE:</span>
+      <button class="type-btn active-all" onclick="setFnoType('ALL',this)">ALL</button>
+      <button class="type-btn" onclick="setFnoType('CE',this)">📈 CALL (CE)</button>
+      <button class="type-btn" onclick="setFnoType('PE',this)">📉 PUT (PE)</button>
+      <button class="type-btn" onclick="setFnoType('FUT',this)">⚡ FUTURES</button>
+      <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
+      <span class="ctrl-label">MIN PRICE SPIKE %</span>
+      <div class="pct-chip active" onclick="setMinPricePct(20,this)">20%+</div>
+      <div class="pct-chip" onclick="setMinPricePct(50,this)">50%+</div>
+      <div class="pct-chip" onclick="setMinPricePct(100,this)">100%+</div>
+      <div class="pct-chip" onclick="setMinPricePct(200,this)">200%+</div>
+      <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
+      <span class="ctrl-label">MIN VOL SPIKE</span>
+      <select class="form-input" id="fno-vol-ratio" onchange="renderFnoTable()" style="width:auto;padding:5px 10px;font-size:10px">
+        <option value="2">2x+</option>
+        <option value="3" selected>3x+</option>
+        <option value="5">5x+</option>
+        <option value="10">10x+</option>
+      </select>
+      <div style="width:1px;height:18px;background:var(--border);margin:0 4px"></div>
+      <span class="ctrl-label">SORT BY</span>
+      <select class="form-input" id="fno-sort" onchange="renderFnoTable()" style="width:auto;padding:5px 10px;font-size:10px">
+        <option value="pricePct">Price Spike % ↓</option>
+        <option value="volRatio">Vol Ratio ↓</option>
+        <option value="time">Time ↓</option>
+      </select>
+    </div>
+
+    <!-- F&O TABLE HEADER -->
+    <div class="fno-section-hdr" style="padding:10px 16px 6px;display:flex;align-items:center;justify-content:space-between;background:var(--surface);border-bottom:1px solid var(--border)">
+      <div class="section-title">
+        F&amp;O Price + Volume Spikes
+        <span class="count-badge" id="fno-count">0</span>
+      </div>
+      <div class="last-update" id="fno-last-update">Waiting for candles…</div>
+    </div>
+
+    <!-- F&O TABLE -->
+    <div class="fno-table-wrap">
+      <table class="fno-table">
+        <thead>
+          <tr>
+            <th>Contract</th>
+            <th>Type</th>
+            <th>Strike</th>
+            <th>Expiry</th>
+            <th>LTP (₹)</th>
+            <th>Price Spike %</th>
+            <th>Candle: Open→Close</th>
+            <th>Vol Spike %</th>
+            <th>Vol Ratio</th>
+            <th>Candle Vol</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody id="fno-tbody">
+          <tr><td colspan="11">
+            <div class="empty-state">
+              <div class="empty-icon">🔥</div>
+              <div class="empty-title">Loading F&amp;O contracts…</div>
+              <div class="empty-sub">Fetching CE, PE &amp; FUT instruments from NSE F&amp;O segment.<br>Spikes appear after first candle close.</div>
+            </div>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div><!-- /tab-fno -->
+
 </div>
 
 <!-- ALERT TOASTS -->
@@ -1220,7 +1372,7 @@ function renderTable() {
   const tbody = document.getElementById('spike-tbody');
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state">
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">
       <div class="empty-icon">🔍</div>
       <div class="empty-title">No spikes yet</div>
       <div class="empty-sub">Monitoring ${instruments.length} ${stockUniverse === 'fno' ? 'F&O' : 'NSE'} stocks on ${candleSeconds}s candles…<br>Spikes appear as candles close every ${candleSeconds} seconds.</div>
@@ -1229,18 +1381,30 @@ function renderTable() {
   }
 
   tbody.innerHTML = rows.map((s, i) => {
-    const ratioClass = s.ratio >= 10 ? 'r-mega' : s.ratio >= 5 ? 'r-high' : 'r-mod';
-    const spikeClass = s.ratio >= 10 ? 's-mega' : s.ratio >= 5 ? 's-high' : 's-mod';
-    const spikeLabel = s.ratio >= 10 ? '🔴 MEGA SPIKE' : s.ratio >= 5 ? '🟡 HIGH SPIKE' : '🟢 SPIKE';
-    const barColor   = s.ratio >= 10 ? '#ff3b5c' : s.ratio >= 5 ? '#ffaa00' : '#00ff88';
-    const barPct     = Math.min((s.vol / (s.avgVol * 12)) * 100, 100);
-    const chgHtml    = s.pct == null ? '<span class="change-neu">—</span>'
-                      : +s.pct > 0 ? `<span class="change-pos">+${s.pct}%</span>`
-                      : +s.pct < 0 ? `<span class="change-neg">${s.pct}%</span>`
-                      : '<span class="change-neu">0.00%</span>';
-    const fnoBadge   = FNO_SYMBOLS.has(s.sym)
+    const ratioClass   = s.ratio >= 10 ? 'r-mega' : s.ratio >= 5 ? 'r-high' : 'r-mod';
+    const spikeClass   = s.ratio >= 10 ? 's-mega' : s.ratio >= 5 ? 's-high' : 's-mod';
+    const spikeLabel   = s.ratio >= 10 ? '🔴 MEGA SPIKE' : s.ratio >= 5 ? '🟡 HIGH SPIKE' : '🟢 SPIKE';
+    const barColor     = s.ratio >= 10 ? '#ff3b5c' : s.ratio >= 5 ? '#ffaa00' : '#00ff88';
+    const barPct       = Math.min((s.vol / (s.avgVol * 12)) * 100, 100);
+    const chgHtml      = s.pct == null ? '<span class="change-neu">—</span>'
+                        : +s.pct > 0 ? `<span class="change-pos">+${s.pct}%</span>`
+                        : +s.pct < 0 ? `<span class="change-neg">${s.pct}%</span>`
+                        : '<span class="change-neu">0.00%</span>';
+    const fnoBadge     = FNO_SYMBOLS.has(s.sym)
       ? `<span style="font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(255,59,92,0.12);color:var(--danger);border:1px solid rgba(255,59,92,0.25);font-weight:700;margin-left:5px">F&O</span>`
       : '';
+
+    // Vol Spike % = how much MORE than average, as a percentage
+    // e.g. ratio 3x = +200% above avg, ratio 5x = +400% above avg
+    const volSpikePct  = ((s.ratio - 1) * 100).toFixed(0);
+    const volSpikeCol  = s.ratio >= 10 ? '#ff6b85' : s.ratio >= 5 ? '#ffc040' : '#00e87a';
+    const volSpikeBg   = s.ratio >= 10 ? 'rgba(255,59,92,0.1)' : s.ratio >= 5 ? 'rgba(255,170,0,0.1)' : 'rgba(0,255,136,0.08)';
+    const volSpikeTf   = `<div style="font-size:10px;color:var(--muted);margin-top:1px">${candleSeconds}s TF</div>`;
+    const volSpikeHtml = `<div style="display:inline-block;padding:4px 10px;border-radius:6px;background:${volSpikeBg}">
+      <span style="font-weight:800;font-size:13px;color:${volSpikeCol}">+${volSpikePct}%</span>
+      ${volSpikeTf}
+    </div>`;
+
     const isNew = i === 0 ? 'new-spike' : '';
 
     return `<tr class="${isNew}">
@@ -1257,6 +1421,7 @@ function renderTable() {
         </div>
       </td>
       <td><span class="ratio-pill ${ratioClass}">${s.ratio.toFixed(1)}x</span></td>
+      <td>${volSpikeHtml}</td>
       <td><span class="spike-badge ${spikeClass}">${spikeLabel}</span></td>
       <td style="color:var(--muted);font-size:10px">${s.time}</td>
     </tr>`;
@@ -1403,6 +1568,353 @@ window.addEventListener('load', () => {
     showErr(`✅ request_token captured: ${rt.slice(0,10)}…\n\nNow use the Python command below to exchange it for an access_token, then paste the result above.`, 'info');
   }
 });
+
+// ══════════════════════════════════════════════
+// TAB SWITCHING
+// ══════════════════════════════════════════════
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + tab).classList.add('active');
+  if (tab === 'fno' && !fnoStarted) initFno();
+}
+
+// ══════════════════════════════════════════════
+// F&O SCREENER ENGINE
+// ══════════════════════════════════════════════
+let fnoStarted       = false;
+let fnoWs            = null;
+let fnoInstruments   = [];   // all NFO CE+PE+FUT instruments
+let fnoTokenMap      = {};   // token -> instrument object
+let fnoPrevVol       = {};   // token -> last cumulative vol
+let fnoCandles       = {};   // token -> { instr, history[], current }
+let fnoSpikes        = [];   // spike records
+let fnoTotalToday    = 0;
+let fnoCandleSec     = 30;
+let fnoCandleTimer   = null;
+let fnoCountdownInt  = null;
+let fnoTypeFilter    = 'ALL';
+let fnoMinPricePct   = 20;
+let fnoLookback      = 20;
+
+async function initFno() {
+  fnoStarted = true;
+  document.getElementById('fno-tbody').innerHTML = '<tr><td colspan="11"><div class="loader"><div class="spinner"></div>Fetching NFO instruments…</div></td></tr>';
+  await fetchFnoInstruments();
+  connectFnoWS();
+}
+
+async function fetchFnoInstruments() {
+  try {
+    const r = await fetch('https://api.kite.trade/instruments/NFO', {
+      headers: { 'Authorization': 'token ' + apiKey + ':' + accessToken }
+    });
+    if (!r.ok) throw new Error(r.status);
+    const csv   = await r.text();
+    const lines = csv.trim().split('\n');
+    const hdrs  = lines[0].split(',');
+    fnoInstruments = lines.slice(1).map(l => {
+      const v = l.split(','), o = {};
+      hdrs.forEach((h, i) => o[h.trim()] = (v[i]||'').trim());
+      return o;
+    }).filter(i => ['CE','PE','FUT'].includes(i.instrument_type));
+
+    fnoInstruments.forEach(i => fnoTokenMap[+i.instrument_token] = i);
+    document.getElementById('fno-stat-contracts').textContent = fnoInstruments.length;
+  } catch(e) {
+    console.warn('NFO instrument fetch failed:', e);
+    document.getElementById('fno-tbody').innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-title">Could not load NFO instruments</div><div class="empty-sub">Check your API key and access token, then refresh.</div></div></td></tr>';
+  }
+}
+
+function connectFnoWS() {
+  // Reuse existing WS if open, else create new connection
+  const url = 'wss://ws.kite.trade?api_key=' + encodeURIComponent(apiKey) + '&access_token=' + encodeURIComponent(accessToken);
+  fnoWs = new WebSocket(url);
+  fnoWs.binaryType = 'arraybuffer';
+
+  fnoWs.onopen = () => {
+    subscribeFnoAll();
+    startFnoCandleEngine();
+  };
+
+  fnoWs.onmessage = e => {
+    if (paused) return;
+    if (e.data instanceof ArrayBuffer) parseFnoBinary(e.data);
+  };
+
+  fnoWs.onerror = e => console.error('FNO WS error', e);
+  fnoWs.onclose = () => {
+    if (fnoStarted && accessToken) setTimeout(connectFnoWS, 5000);
+  };
+}
+
+function subscribeFnoAll() {
+  const tokens = fnoInstruments.map(i => +i.instrument_token);
+  const BATCH  = 3000;
+  for (let i = 0; i < tokens.length; i += BATCH) {
+    const b = tokens.slice(i, i + BATCH);
+    fnoWs.send(JSON.stringify({ a: 'subscribe', v: b }));
+    fnoWs.send(JSON.stringify({ a: 'mode', v: ['full', b] }));
+  }
+}
+
+function parseFnoBinary(buf) {
+  if (buf.byteLength < 2) return;
+  const view  = new DataView(buf);
+  const count = view.getInt16(0);
+  let offset  = 2;
+  for (let i = 0; i < count; i++) {
+    if (offset + 2 > buf.byteLength) break;
+    const len = view.getInt16(offset); offset += 2;
+    if (offset + len > buf.byteLength) break;
+    processFnoTick(new DataView(buf, offset, len), len);
+    offset += len;
+  }
+}
+
+function processFnoTick(v, len) {
+  try {
+    const token = v.getInt32(0);
+    const ltp   = v.getInt32(4) / 100;
+    const instr = fnoTokenMap[token];
+    if (!instr) return;
+
+    const cumVol = len >= 44 ? v.getInt32(40) : 0;
+    const prev   = fnoPrevVol[token] ?? cumVol;
+    const dVol   = Math.max(0, cumVol - prev);
+    fnoPrevVol[token] = cumVol;
+
+    // open price for the day (byte 20)
+    const dayOpen = len >= 24 ? v.getInt32(20) / 100 : ltp;
+
+    accumulateFnoTick(token, instr, ltp, dVol, dayOpen);
+  } catch(e) {}
+}
+
+function accumulateFnoTick(token, instr, ltp, dVol, dayOpen) {
+  if (!fnoCandles[token]) {
+    fnoCandles[token] = { instr, history: [], current: null, ltp, dayOpen };
+  }
+  const c = fnoCandles[token];
+  c.ltp = ltp;
+  if (!c.current) {
+    c.current = { open: ltp, high: ltp, low: ltp, close: ltp, vol: dVol };
+  } else {
+    c.current.high  = Math.max(c.current.high, ltp);
+    c.current.low   = Math.min(c.current.low,  ltp);
+    c.current.close = ltp;
+    c.current.vol  += dVol;
+  }
+}
+
+function startFnoCandleEngine() {
+  if (fnoCandleTimer)  clearInterval(fnoCandleTimer);
+  if (fnoCountdownInt) clearInterval(fnoCountdownInt);
+  const ms   = fnoCandleSec * 1000;
+  const now  = Date.now();
+  const next = Math.ceil(now / ms) * ms;
+  setTimeout(() => {
+    closeFnoCandles();
+    fnoCandleTimer = setInterval(closeFnoCandles, ms);
+  }, next - now);
+  startFnoCountdown(next - now);
+}
+
+function startFnoCountdown(ms) {
+  if (fnoCountdownInt) clearInterval(fnoCountdownInt);
+  let rem = Math.floor(ms / 1000);
+  const el = document.getElementById('fno-stat-countdown');
+  fnoCountdownInt = setInterval(() => {
+    if (rem <= 0) rem = fnoCandleSec;
+    el.textContent = rem + 's';
+    rem--;
+  }, 1000);
+}
+
+function closeFnoCandles() {
+  const time = new Date().toLocaleTimeString('en-IN', { hour12: false });
+
+  for (const token in fnoCandles) {
+    const c = fnoCandles[token];
+    if (!c.current || c.current.vol === 0) continue;
+
+    const closed = { ...c.current, time };
+    c.history.push(closed);
+    if (c.history.length > 120) c.history.shift();
+    c.current = null;
+
+    // ── Price Spike % ──
+    // How much did price move in THIS candle: (close - open) / open * 100
+    const candleOpen  = closed.open;
+    const candleClose = closed.close;
+    if (candleOpen <= 0) continue;
+    const pricePct = ((candleClose - candleOpen) / candleOpen) * 100;
+    const absPricePct = Math.abs(pricePct);
+
+    // ── Volume Spike % ──
+    if (c.history.length <= fnoLookback) continue;
+    const past   = c.history.slice(-fnoLookback - 1, -1);
+    const avgVol = past.reduce((s, x) => s + x.vol, 0) / past.length;
+    if (avgVol <= 0) continue;
+    const volRatio  = closed.vol / avgVol;
+    const volSpikePct = ((volRatio - 1) * 100).toFixed(0);
+
+    // Fire if price moved significantly OR volume spiked
+    const minVolRatio = +document.getElementById('fno-vol-ratio').value;
+    if (absPricePct >= fnoMinPricePct || volRatio >= minVolRatio) {
+      fireFnoSpike({
+        token:      +token,
+        sym:        c.instr.tradingsymbol,
+        name:       c.instr.name,
+        type:       c.instr.instrument_type,  // CE / PE / FUT
+        strike:     c.instr.strike,
+        expiry:     c.instr.expiry,
+        ltp:        c.ltp,
+        candleOpen, candleClose,
+        pricePct:   pricePct.toFixed(2),
+        absPricePct,
+        vol:        closed.vol,
+        avgVol,
+        volRatio,
+        volSpikePct,
+        time,
+        tf:         fnoCandleSec,
+      });
+    }
+  }
+
+  startFnoCountdown(fnoCandleSec * 1000);
+}
+
+function fireFnoSpike(entry) {
+  fnoTotalToday++;
+  const idx = fnoSpikes.findIndex(s => s.sym === entry.sym);
+  if (idx >= 0) fnoSpikes[idx] = entry;
+  else fnoSpikes.unshift(entry);
+  if (fnoSpikes.length > 500) fnoSpikes.pop();
+
+  document.getElementById('fno-stat-spikes').textContent  = fnoSpikes.length;
+  document.getElementById('fno-stat-total').textContent   = fnoTotalToday;
+  document.getElementById('fno-count').textContent        = fnoSpikes.length;
+  document.getElementById('fno-last-update').textContent  = 'Last: ' + entry.sym + ' @ ' + entry.time;
+
+  renderFnoTable();
+}
+
+// ══════════════════════════════════════════════
+// RENDER F&O TABLE
+// ══════════════════════════════════════════════
+function renderFnoTable() {
+  const minVolRatio = +document.getElementById('fno-vol-ratio').value;
+  const sortKey     = document.getElementById('fno-sort').value;
+
+  let rows = fnoSpikes.filter(s => {
+    if (fnoTypeFilter !== 'ALL' && s.type !== fnoTypeFilter) return false;
+    if (s.absPricePct < fnoMinPricePct && s.volRatio < minVolRatio) return false;
+    return true;
+  });
+
+  rows.sort((a, b) => {
+    if (sortKey === 'pricePct')  return b.absPricePct - a.absPricePct;
+    if (sortKey === 'volRatio')  return b.volRatio    - a.volRatio;
+    return (b.time || '').localeCompare(a.time || '');
+  });
+
+  const tbody = document.getElementById('fno-tbody');
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="11"><div class="empty-state"><div class="empty-icon">🔍</div><div class="empty-title">No F&O spikes yet</div><div class="empty-sub">Scanning ' + fnoInstruments.length + ' CE/PE/FUT contracts on ' + fnoCandleSec + 's candles…</div></div></td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((s, i) => {
+    // Type tag
+    const typeTag = s.type === 'CE'  ? '<span class="tag-ce">CE</span>'
+                  : s.type === 'PE'  ? '<span class="tag-pe">PE</span>'
+                  :                    '<span class="tag-fut">FUT</span>';
+
+    // Price spike color & direction
+    const pUp      = +s.pricePct >= 0;
+    const priceCol = pUp ? '#00e87a' : 'var(--danger)';
+    const priceBg  = pUp ? 'rgba(0,255,136,0.08)' : 'rgba(255,59,92,0.08)';
+    const priceArrow = pUp ? '▲' : '▼';
+
+    // Vol spike color
+    const vCol = s.volRatio >= 10 ? 'var(--danger)' : s.volRatio >= 5 ? 'var(--warn)' : 'var(--accent)';
+    const vBg  = s.volRatio >= 10 ? 'rgba(255,59,92,0.1)' : s.volRatio >= 5 ? 'rgba(255,170,0,0.1)' : 'rgba(0,255,136,0.08)';
+
+    // Expiry short format
+    const expShort = s.expiry ? s.expiry.slice(0,7) : '—';
+
+    // Strike display
+    const strikeDisplay = s.strike && +s.strike > 0 ? '₹' + (+s.strike).toLocaleString() : '—';
+
+    const isNew = i === 0 ? 'fno-new' : '';
+
+    return '<tr class="' + isNew + '">' +
+      '<td style="font-weight:800;font-size:12px">' + s.name + '</td>' +
+      '<td>' + typeTag + '</td>' +
+      '<td style="font-weight:700;color:var(--text)">' + strikeDisplay + '</td>' +
+      '<td style="color:var(--muted);font-size:10px">' + expShort + '</td>' +
+      '<td style="font-weight:700">₹' + s.ltp.toFixed(2) + '</td>' +
+      '<td>' +
+        '<div class="spike-duo" style="background:' + priceBg + '">' +
+          '<span class="big" style="color:' + priceCol + '">' + priceArrow + Math.abs(+s.pricePct).toFixed(1) + '%</span>' +
+          '<span class="sml">' + s.candleOpen.toFixed(2) + ' → ' + s.candleClose.toFixed(2) + '</span>' +
+        '</div>' +
+      '</td>' +
+      '<td style="color:var(--muted);font-size:10px">₹' + s.candleOpen.toFixed(2) + ' → ₹' + s.candleClose.toFixed(2) + '</td>' +
+      '<td>' +
+        '<div class="spike-duo" style="background:' + vBg + '">' +
+          '<span class="big" style="color:' + vCol + '">+' + s.volSpikePct + '%</span>' +
+          '<span class="sml">' + s.volRatio.toFixed(1) + 'x avg</span>' +
+        '</div>' +
+      '</td>' +
+      '<td><span class="ratio-pill ' + (s.volRatio>=10?'r-mega':s.volRatio>=5?'r-high':'r-mod') + '">' + s.volRatio.toFixed(1) + 'x</span></td>' +
+      '<td style="color:var(--muted)">' + fmtVol(s.vol) + '</td>' +
+      '<td style="color:var(--muted);font-size:10px">' + s.time + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+// ── F&O Controls ──
+function setFnoTF(sec, el) {
+  fnoCandleSec = sec;
+  document.querySelectorAll('[data-ftf]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  fnoCandles = {}; fnoPrevVol = {};
+  fnoSpikes = [];
+  document.getElementById('fno-stat-spikes').textContent = 0;
+  document.getElementById('fno-count').textContent = 0;
+  renderFnoTable();
+  startFnoCandleEngine();
+}
+
+function setFnoType(type, el) {
+  fnoTypeFilter = type;
+  document.querySelectorAll('.type-btn').forEach(b => {
+    b.className = 'type-btn';
+  });
+  el.className = 'type-btn active-' + type.toLowerCase();
+  renderFnoTable();
+}
+
+function setMinPricePct(pct, el) {
+  fnoMinPricePct = pct;
+  document.querySelectorAll('.pct-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  renderFnoTable();
+}
+
+function clearFnoSpikes() {
+  fnoSpikes = [];
+  document.getElementById('fno-stat-spikes').textContent = 0;
+  document.getElementById('fno-count').textContent = 0;
+  renderFnoTable();
+}
+
 </script>
 </body>
 </html>
