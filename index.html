@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>NSE Volume Spike Screener</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&display=swap');
@@ -33,7 +35,7 @@
 
   body::before {
     content: '';
-    position: fixed;
+    position: absolute;
     inset: 0;
     background-image:
       linear-gradient(rgba(0,255,136,0.025) 1px, transparent 1px),
@@ -41,9 +43,10 @@
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
+    touch-action: none;
   }
 
-  .container { position: relative; z-index: 1; }
+  .container { position: relative; z-index: 1; isolation: isolate; }
 
   header {
     border-bottom: 1px solid var(--border);
@@ -102,7 +105,7 @@
   .live-badge.offline .live-dot { background: var(--muted); animation: none; }
 
   /* SETUP */
-  #setup-panel { max-width: 600px; margin: 50px auto; padding: 0 20px; }
+  #setup-panel { max-width: 600px; margin: 50px auto; padding: 0 20px; position: relative; z-index: 10; }
 
   .setup-card {
     background: var(--surface);
@@ -180,7 +183,7 @@
 
   .code { background: rgba(0,0,0,0.4); padding: 2px 7px; border-radius: 4px; font-size: 11px; color: var(--accent); }
 
-  .btn {
+  .btn { touch-action: manipulation;
     display: inline-flex;
     align-items: center;
     gap: 8px;
@@ -341,7 +344,7 @@
     border-bottom: 1px solid var(--border);
   }
 
-  .filter-chip {
+  .filter-chip { touch-action: manipulation;
     padding: 5px 13px;
     border-radius: 20px;
     font-size: 10px; font-weight: 700;
@@ -545,7 +548,7 @@
 
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  .univ-btn {
+  .univ-btn { touch-action: manipulation;
     padding: 5px 14px;
     border-radius: 20px;
     font-size: 11px; font-weight: 700;
@@ -562,7 +565,7 @@
   .univ-btn.fno.active { background: rgba(255,59,92,0.12); border-color: var(--danger); color: var(--danger); }
   .univ-btn.fno:hover  { border-color: var(--danger); color: var(--danger); }
 
-  .tf-btn {
+  .tf-btn { touch-action: manipulation;
     padding: 5px 12px;
     border-radius: 6px;
     font-family: 'JetBrains Mono', monospace;
@@ -623,7 +626,7 @@
   }
 
   /* ── TABS ── */
-  .tab-bar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); position:sticky; top:49px; z-index:90; }
+  .tab-bar { display:flex; background:var(--surface); border-bottom:1px solid var(--border); }
   .tab-btn { flex:1; padding:12px 6px; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--muted); background:transparent; border:none; cursor:pointer; border-bottom:2px solid transparent; transition:all .2s; display:flex; align-items:center; justify-content:center; gap:5px; }
   .tab-btn:hover { color:var(--text); }
   .tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); }
@@ -632,7 +635,7 @@
   .tab-panel.active { display:block; }
 
   .fno-bar { padding:10px 16px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--border); background:var(--surface); flex-wrap:wrap; }
-  .type-btn { padding:5px 13px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:800; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted); transition:all .15s; }
+  .type-btn { touch-action: manipulation; padding:5px 13px; border-radius:6px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:800; cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--muted); transition:all .15s; }
   .type-btn:hover:not(.active) { border-color:var(--muted); color:var(--text); }
   .type-btn.active-all  { background:rgba(0,255,136,0.1);  border-color:var(--accent);  color:var(--accent);  }
   .type-btn.active-ce   { background:rgba(0,153,255,0.12); border-color:var(--accent2); color:var(--accent2); }
@@ -665,6 +668,20 @@
   .pct-chip.active { background:rgba(255,59,92,0.1); border-color:var(--danger); color:var(--danger); }
   .pct-chip:hover:not(.active) { border-color:var(--muted); color:var(--text); }
 
+
+  button, .btn, .filter-chip, .univ-btn, .tf-btn, .type-btn, .pct-chip {
+    -webkit-tap-highlight-color: rgba(0,255,136,0.2);
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-appearance: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  input, select {
+    -webkit-appearance: none;
+    touch-action: manipulation;
+  }
+
 </style>
 </head>
 <body>
@@ -690,7 +707,7 @@
 
 <!-- ══════════ SETUP PANEL ══════════ -->
 <div id="setup-panel">
-  <div class="setup-card">
+  <div class="setup-card" style="position:relative;z-index:10;">
     <div class="setup-title">⚡ Kite Connect Setup</div>
     <div class="setup-sub">Real-time NSE volume spike screener using Zerodha WebSocket.<br>
     Aggregates all NSE ticks into 30-second (0.5 min) OHLCV candles and flags volume spikes.</div>
@@ -998,6 +1015,7 @@
 
 <!-- ALERT TOASTS -->
 <div class="alerts-panel" id="alerts-panel"></div>
+</div><!-- /container -->
 
 <script>
 // ══════════════════════════════════
