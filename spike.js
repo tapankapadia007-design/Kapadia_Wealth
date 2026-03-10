@@ -1,7 +1,7 @@
 async function load(){
 
 let res = await fetch(
-"https://nse-spike-backend.onrender.com/spikes"
+"https://nse-spike-backend-1.onrender.com/spikes"
 )
 
 let data = await res.json()
